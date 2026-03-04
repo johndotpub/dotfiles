@@ -7,6 +7,7 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 - 🧩 Default skel profile deployment
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
+- ♻️ Safe re-runs (preserves existing files by default)
 
 ## 🚀 Quick start (local)
 
@@ -15,6 +16,9 @@ chmod +x install.sh
 ./install.sh --dry-run --verbose
 ./install.sh -y
 ```
+
+By default, existing files like `~/.zshrc` are kept as-is.
+Use `--force` only when you intentionally want to replace files.
 
 ## 🌐 Quick start (Pages bootstrap)
 
@@ -40,15 +44,13 @@ curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0 --
 │   ├── brew-packages.txt
 │   └── apt-minimal.txt
 ├── scripts/
+│   ├── lib/brew-env.sh
 │   ├── setup-pyenv.sh
 │   ├── setup-starship.sh
 │   └── post-install-checks.sh
 └── skel/
     └── default/
-        ├── .bash_profile
-        ├── .bashrc
         ├── .zshrc
-        ├── .profile
         ├── .gitconfig
         ├── .ssh/config
         └── .config/starship.toml
@@ -87,9 +89,17 @@ tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
 
 ## 🧠 Migration notes
 
-- Legacy Bash startup behavior is preserved in `skel/default/.bashrc` and `.bash_profile`.
-- Optional old bootstrap handoff is supported if `~/.dot/bootstrap/startup.sh` exists.
-- Existing files in `$HOME` are backed up as `*.bak.<timestamp>` unless `--force` is used.
+- `.dot/bootstrap` references have been removed.
+- This repo is intentionally zsh-first and keeps Bash config minimal.
+- Existing files in `$HOME` are preserved by default; `--force` is opt-in.
+
+## ✅ CI tests
+
+GitHub Actions runs a CI workflow that checks:
+
+- shell syntax (`bash -n`)
+- installer/bootstrap help output
+- installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 
 ## 📜 License
 

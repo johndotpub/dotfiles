@@ -87,6 +87,10 @@ Options:
       --skel-dir <path>      Use alternate skel directory
       --packages-dir <path>  Use alternate packages directory
       --inventory-dir <path> Use alternate inventory directory
+
+Behavior:
+  - Existing files are preserved by default.
+  - Use --force to replace existing files.
 EOF
 }
 
@@ -295,10 +299,24 @@ deploy_skel_profile() {
     base="$(basename "$src")"
     dest="${HOME}/${base}"
     if [[ -e "$dest" || -L "$dest" ]]; then
-      backup_path "$dest"
+      if [[ "$FORCE" -eq 1 ]]; then
+        backup_path "$dest"
+        run cp -a "$src" "$dest"
+        debug "Processed ${dest} with force"
+      elif [[ -d "$src" && -d "$dest" ]]; then
+        info "↪️  Keeping existing ${dest} (adding missing files only)"
+        if [[ "$DRY_RUN" -eq 1 ]]; then
+          printf '🧪 DRY: cp -a --update=none %q %q\n' "${src}/." "${dest}/"
+        else
+          cp -a --update=none "${src}/." "${dest}/"
+        fi
+      else
+        info "↪️  Keeping existing ${dest}"
+      fi
+      continue
     fi
     run cp -a "$src" "$dest"
-    debug "Deployed ${dest}"
+    debug "Processed ${dest}"
   done
   shopt -u dotglob nullglob
 }
@@ -396,12 +414,15 @@ fi
 deploy_skel_profile "$SKEL_PROFILE"
 
 if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf '🧪 DRY: echo %q > %q\n' "$PYVER" "${HOME}/.python-version"
+  pyver_file="${HOME}/.python-version"
+  if [[ -f "$pyver_file" && "$FORCE" -eq 0 ]]; then
+    info "↪️  Keeping existing ${pyver_file}"
+  elif [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: echo %q > %q\n' "$PYVER" "$pyver_file"
   else
-    printf '%s\n' "$PYVER" > "${HOME}/.python-version"
+    printf '%s\n' "$PYVER" > "$pyver_file"
+    ok "Configured ${pyver_file} (${PYVER})"
   fi
-  ok "Configured ${HOME}/.python-version (${PYVER})"
 fi
 
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
