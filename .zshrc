@@ -1,21 +1,30 @@
-export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
-export LANG="en_US.UTF-8"
+# Path to your Oh My Zsh installation.
+export ZSH="$HOME/.oh-my-zsh"
 
+# Path setup
+export PATH="$HOME/.local/bin:$PATH"
+export PATH="$HOME/.npm-global/bin:$PATH"
+
+ZSH_THEME="robbyrussell"
+
+# Homebrew environment
 if command -v brew >/dev/null 2>&1; then
   eval "$(brew shellenv)"
-elif [[ -x /opt/homebrew/bin/brew ]]; then
-  eval "$(/opt/homebrew/bin/brew shellenv)"
-elif [[ -x /usr/local/bin/brew ]]; then
-  eval "$(/usr/local/bin/brew shellenv)"
 fi
 
-if [[ -d "$HOME/.oh-my-zsh" ]]; then
-  export ZSH="$HOME/.oh-my-zsh"
-  ZSH_THEME="robbyrussell"
-  plugins=(git zsh-pyenv)
+HIST_STAMPS="yyyy-mm-dd"
+HISTSIZE=-1
+HISTFILESIZE=-1
+HISTCONTROL=ignoreboth
+
+plugins=(git zsh-pyenv)
+if [[ -d "$ZSH" ]]; then
   source "$ZSH/oh-my-zsh.sh"
 fi
 
+export LANG="en_US.UTF-8"
+
+# STARSHIP
 if command -v starship >/dev/null 2>&1; then
   eval "$(starship init zsh)"
 fi

@@ -200,7 +200,8 @@ backup_path() {
       run rm -rf -- "$path"
       debug "Removed existing path (force): $path"
     else
-      local bak="${path}.bak.$(timestamp)"
+      local bak
+      bak="${path}.bak.$(timestamp)"
       run mv -- "$path" "$bak"
       debug "Backed up ${path} -> ${bak}"
     fi

@@ -98,9 +98,14 @@ tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
 GitHub Actions runs a CI workflow that checks:
 
 - shell syntax (`bash -n`)
+- shellcheck linting
 - installer/bootstrap help output
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 
+## 📝 Changelog
+
+Release notes live in [CHANGELOG.md](./CHANGELOG.md).
+
 ## 📜 License
 
-Released under the **Unlicense**. See [LICENSE](./LICENSE).
+Released under **UNLICENSE**. See [UNLICENSE](./UNLICENSE).
