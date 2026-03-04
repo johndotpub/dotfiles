@@ -12,11 +12,13 @@ set -euo pipefail
 
 REPO="johndotpub/.skel"
 
+# Runtime flags forwarded to install.sh.
 TAG=""
 HOST=""
 PYVER=""
 ASSUME_YES=0
 
+# Print usage and exit with optional code.
 usage() {
   local code="${1:-1}"
   cat <<EOF
@@ -27,6 +29,7 @@ EOF
   exit "$code"
 }
 
+# Parse minimal bootstrap args.
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --tag) TAG="$2"; shift 2 ;;
@@ -43,6 +46,7 @@ if [[ -z "$TAG" ]]; then
   usage 1
 fi
 
+# Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
 ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
@@ -58,6 +62,7 @@ echo "📥 Downloading checksum..."
 curl -fsSLo "${ASSET_BASENAME}.sha256" "${SHA_URL}"
 
 # Optional GPG verification for checksum file
+# If a detached signature is published for the checksum, verify it.
 if curl -fsSLo /dev/null "${SHA_SIG_URL}" 2>/dev/null; then
   echo "🔐 Found checksum signature; verifying with gpg..."
   curl -fsSLo "${ASSET_BASENAME}.sha256.asc" "${SHA_SIG_URL}"
@@ -68,6 +73,7 @@ if curl -fsSLo /dev/null "${SHA_SIG_URL}" 2>/dev/null; then
 fi
 
 echo "🧾 Verifying checksum..."
+# This validates the tarball bytes before we execute anything from it.
 sha256sum -c "${ASSET_BASENAME}.sha256"
 
 echo "📦 Extracting release..."
@@ -77,6 +83,7 @@ cd repo
 chmod +x install.sh
 
 echo "🚀 Running installer..."
+# Construct args array safely to avoid quoting bugs.
 install_args=(--from-release --tag "$TAG")
 if [[ -n "$HOST" ]]; then
   install_args+=(--host "$HOST")
@@ -88,5 +95,6 @@ if [[ "$ASSUME_YES" -eq 1 ]]; then
   install_args+=(-y)
 fi
 
+# Execute installer from the verified release payload.
 ./install.sh "${install_args[@]}"
 echo "✅ Bootstrap complete."
