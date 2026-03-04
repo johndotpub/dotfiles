@@ -213,14 +213,14 @@ ensure_brew_shellenv() {
     eval "$(brew shellenv)"
     return 0
   fi
-  if [[ -x "/home/linuxbrew/.linuxbrew/bin/brew" ]]; then
-    # shellcheck disable=SC2046
-    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
-    return 0
-  fi
   if [[ -x "/opt/homebrew/bin/brew" ]]; then
     # shellcheck disable=SC2046
     eval "$(/opt/homebrew/bin/brew shellenv)"
+    return 0
+  fi
+  if [[ -x "/usr/local/bin/brew" ]]; then
+    # shellcheck disable=SC2046
+    eval "$(/usr/local/bin/brew shellenv)"
     return 0
   fi
   return 1
