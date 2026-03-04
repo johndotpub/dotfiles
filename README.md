@@ -5,6 +5,8 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 - 🍺 Brew-first package install
 - 🧾 Release verification (SHA256 + optional GPG on checksum)
 - 🧩 Default skel profile deployment
+- 🌃 Starship Tokyo Night preset by default
+- 📝 Nano syntax highlighting via nanorc
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (preserves existing files by default)
@@ -18,7 +20,8 @@ chmod +x install.sh
 ```
 
 By default, existing files like `~/.zshrc` are kept as-is.
-Use `--force` only when you intentionally want to replace files.
+Use `--override` only when you intentionally want to replace files.
+When `--override` modifies an existing config, a `.bak.<date>` backup is created.
 
 ## 🌐 Quick start (Pages bootstrap)
 
@@ -71,7 +74,7 @@ curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0 --
 - `--create-home-pyver`
 - `--install-inference`
 - `--dry-run`
-- `--force`
+- `--override` (`--force` alias)
 - `--brew-only`
 - `--no-apt`
 - `--verbose`
@@ -91,7 +94,7 @@ tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
 
 - `.dot/bootstrap` references have been removed.
 - This repo is intentionally zsh-first and keeps Bash config minimal.
-- Existing files in `$HOME` are preserved by default; `--force` is opt-in.
+- Existing files in `$HOME` are preserved by default; `--override` is opt-in.
 
 ## ✅ CI tests
 

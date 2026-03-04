@@ -43,6 +43,21 @@ chmod +x "${FAKE_BIN}/uv"
 
 cat > "${FAKE_BIN}/starship" <<'EOF'
 #!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "--version" ]]; then
+  echo "starship 1.0.0-test"
+  exit 0
+fi
+if [[ "${1:-}" == "preset" && "${2:-}" == "tokyo-night" && "${3:-}" == "-o" ]]; then
+  target="${4:-}"
+  mkdir -p "$(dirname "$target")"
+  printf '%s\n' '# tokyo-night preset test config' > "$target"
+  exit 0
+fi
+if [[ "${1:-}" == "preset" && "${2:-}" == "--help" ]]; then
+  echo "starship preset help"
+  exit 0
+fi
 echo "starship 1.0.0-test"
 EOF
 chmod +x "${FAKE_BIN}/starship"
@@ -64,6 +79,28 @@ case "$cmd" in
 esac
 EOF
 chmod +x "${FAKE_BIN}/pyenv"
+
+cat > "${FAKE_BIN}/git" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "clone" ]]; then
+  target="${@: -1}"
+  mkdir -p "$target"
+  cat > "${target}/Makefile" <<'OUT'
+install:
+	@echo "nanorc install"
+OUT
+  exit 0
+fi
+exit 0
+EOF
+chmod +x "${FAKE_BIN}/git"
+
+cat > "${FAKE_BIN}/make" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+chmod +x "${FAKE_BIN}/make"
 
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
 # existing zshrc should be preserved
@@ -97,6 +134,18 @@ fi
 
 if compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
   echo "Unexpected .gitconfig backups found on rerun."
+  exit 1
+fi
+
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag ci-test >/dev/null
+
+if ! compgen -G "${HOME_DIR}/.zshrc.bak.*" >/dev/null; then
+  echo "Expected .zshrc backup not found with --override."
+  exit 1
+fi
+
+if ! compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
+  echo "Expected .gitconfig backup not found with --override."
   exit 1
 fi
 

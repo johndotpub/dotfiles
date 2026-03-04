@@ -9,13 +9,20 @@ setup_brew_env
 brew install starship || true
 
 mkdir -p "${HOME}/.config"
-if [[ -f "${HOME}/.config/starship.toml" ]]; then
-  echo "Keeping existing ${HOME}/.config/starship.toml"
+TARGET="${HOME}/.config/starship.toml"
+FALLBACK="${SCRIPT_DIR}/../skel/default/.config/starship.toml"
+
+if [[ -f "$TARGET" ]]; then
+  echo "Keeping existing ${TARGET}"
   exit 0
 fi
 
-cat > "${HOME}/.config/starship.toml" <<'EOF'
-# Default: follow detection rules (no forced home python)
-[character]
-success_symbol = "[✔](bold green) "
-EOF
+if command -v starship >/dev/null 2>&1 && starship preset --help >/dev/null 2>&1; then
+  starship preset tokyo-night -o "$TARGET"
+  echo "Configured starship preset: tokyo-night"
+elif [[ -f "$FALLBACK" ]]; then
+  cp -a "$FALLBACK" "$TARGET"
+  echo "Configured fallback tokyo-night starship.toml"
+else
+  echo "Could not configure starship preset automatically."
+fi
