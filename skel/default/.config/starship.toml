@@ -1,0 +1,3 @@
+# Default starship config: keep automatic language detection.
+[character]
+success_symbol = "[✔](bold green) "

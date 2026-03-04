@@ -1,0 +1,16 @@
+zsh
+starship
+pyenv
+pyenv-virtualenv
+git
+tmux
+htop
+wget
+curl
+python@3.12
+node
+ripgrep
+fd
+fzf
+bat
+jq

@@ -1,0 +1,4 @@
+openssh-server
+ufw
+fail2ban
+build-essential
