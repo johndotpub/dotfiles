@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set script permissions
+        run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+
+      - name: Shell syntax checks
+        run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+
+      - name: Help smoke tests
+        run: |
+          ./install.sh --help >/dev/null
+          ./bootstrap.sh --help >/dev/null
+
+      - name: Dry-run smoke test
+        run: ./install.sh --dry-run --no-apt --brew-only --yes --verbose >/dev/null
+
+      - name: Idempotency test
+        run: ./scripts/test-installer-idempotency.sh
