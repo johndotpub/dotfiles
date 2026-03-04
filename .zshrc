@@ -1,12 +1,12 @@
 export PATH="$HOME/.local/bin:$HOME/.npm-global/bin:$PATH"
 export LANG="en_US.UTF-8"
 
-if [[ -x /home/linuxbrew/.linuxbrew/bin/brew ]]; then
-  eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+if command -v brew >/dev/null 2>&1; then
+  eval "$(brew shellenv)"
 elif [[ -x /opt/homebrew/bin/brew ]]; then
   eval "$(/opt/homebrew/bin/brew shellenv)"
-elif command -v brew >/dev/null 2>&1; then
-  eval "$(brew shellenv)"
+elif [[ -x /usr/local/bin/brew ]]; then
+  eval "$(/usr/local/bin/brew shellenv)"
 fi
 
 if [[ -d "$HOME/.oh-my-zsh" ]]; then
