@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased] 🚧
 
-- No unreleased changes yet.
+- 📌 Added v1.0.0-focused badges to README (version, CI, release, UNLICENSE).
 
 ## [v1.0.0] 🎉
 

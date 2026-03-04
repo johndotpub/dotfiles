@@ -1,5 +1,10 @@
 # ✨ dotfiles (brew-first bootstrap)
 
+[![Version](https://img.shields.io/badge/version-v1.0.0-7aa2f7?style=flat-square)](https://github.com/johndotpub/.skel/releases/tag/v1.0.0)
+[![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/.skel/ci.yml?branch=master&style=flat-square&label=CI)](https://github.com/johndotpub/.skel/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/johndotpub/.skel?style=flat-square)](https://github.com/johndotpub/.skel/releases)
+[![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)
+
 Clean, straightforward dotfiles setup for Linux/WSL:
 
 - 🍺 Brew-first package install
