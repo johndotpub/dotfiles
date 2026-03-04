@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 
 ## [Unreleased] 🚧
 
-- 📌 Added v1.0.0-focused badges to README (version, CI, release, UNLICENSE).
+- No unreleased changes yet.
 
 ## [v1.0.0] 🎉
 
@@ -29,6 +29,8 @@ All notable changes to this project are documented here.
   - `shellcheck -x` linting
   - installer help smoke tests
   - idempotency integration test
+- 📌 README badges added for v1.0.0:
+  - version, CI, release, and UNLICENSE
 
 ### Changed 🔧
 - ♻️ Overwrite behavior now uses `--override` (with `--force` as alias).
