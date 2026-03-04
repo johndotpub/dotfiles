@@ -16,7 +16,9 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 
 ```bash
 chmod +x install.sh
+# preview changes first
 ./install.sh --dry-run --verbose
+# run install
 ./install.sh -y
 ```
 
@@ -27,13 +29,7 @@ When `--override` modifies an existing config, a `.bak.<date>` backup is created
 ## 🌐 Quick start (Pages bootstrap)
 
 ```bash
-curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0
-```
-
-Optional if you add extra host overlays later:
-
-```bash
-curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0 --host <name>
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 ```
 
 ## 🗂️ Project layout
@@ -70,7 +66,7 @@ curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0 --
 ## ⚙️ Installer flags
 
 - `--tag <tag>`
-- `--host <host>` (optional; only if `inventory/hosts/<host>.yaml` exists)
+- `--host <host>` (advanced optional profile name; most users can ignore this)
 - `--pyver <ver>`
 - `--create-home-pyver`
 - `--install-inference`
