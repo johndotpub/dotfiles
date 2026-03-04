@@ -3,6 +3,13 @@ set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
 # Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--override] [--brew-only] [--no-apt] [--verbose] [-y]
+#
+# High-level flow:
+#   1) Parse CLI flags and resolve effective config (CLI + inventory)
+#   2) Prepare base dependencies (optional apt + brew bootstrap)
+#   3) Install package sets (brew first, apt fallback)
+#   4) Apply user-facing config (skel files, starship, nano syntax)
+#   5) Run post-install checks and exit with clear status logs
 
 OVERRIDE=0
 CREATE_HOME_PYVER=0
@@ -30,6 +37,12 @@ SKEL_PROFILE="default"
 
 timestamp() { date +%Y%m%d%H%M%S; }
 
+# ------------------------------------------------------------------------------
+# Logging and command execution helpers
+# ------------------------------------------------------------------------------
+# - info/ok/warn/err: user-facing status messages
+# - debug: verbose-only internals
+# - run/run_pipe: DRY-RUN-aware command execution wrappers
 info() { printf 'ℹ️  %s\n' "$*"; }
 ok() { printf '✅ %s\n' "$*"; }
 warn() { printf '⚠️  %s\n' "$*"; }
@@ -123,6 +136,7 @@ while true; do
   esac
 done
 
+# Runtime diagnostics to make troubleshooting easier when verbose is enabled.
 debug "repo_dir=${REPO_DIR}"
 debug "tag=${TAG:-<none>}"
 debug "host=${HOST:-<none>}"
@@ -133,6 +147,8 @@ if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
   SUDO_BIN="sudo"
 fi
 
+# Run a command with elevated privileges when needed.
+# We keep this wrapper centralized so dry-run and verbose logging still work.
 run_root() {
   if [[ -n "$SUDO_BIN" ]]; then
     run "$SUDO_BIN" "$@"
@@ -215,6 +231,8 @@ backup_copy() {
 }
 
 ensure_brew_shellenv() {
+  # Brew may already be in PATH (preferred). The explicit fallbacks handle
+  # standard macOS locations when PATH has not yet been updated in this shell.
   if command -v brew >/dev/null 2>&1; then
     # shellcheck disable=SC2046
     eval "$(brew shellenv)"
@@ -293,6 +311,9 @@ install_brew_from_file() {
 }
 
 deploy_skel_profile() {
+  # Deploy policy:
+  # - default: preserve existing files and only fill missing content
+  # - --override: replace existing targets after creating .bak.<timestamp>
   local profile="$1"
   local src_root="${SKEL_DIR}/${profile}"
   if [[ ! -d "$src_root" ]]; then
@@ -329,6 +350,8 @@ deploy_skel_profile() {
 }
 
 configure_starship_prompt() {
+  # Prefer the official preset command when available so users get the
+  # canonical upstream style. Fall back to the bundled preset file otherwise.
   local target="${HOME}/.config/starship.toml"
   local fallback="${SKEL_DIR}/${SKEL_PROFILE}/.config/starship.toml"
 
@@ -359,6 +382,9 @@ configure_starship_prompt() {
 }
 
 configure_nano_syntax() {
+  # nanorc setup is intentionally conservative:
+  # - existing ~/.nanorc is left untouched by default
+  # - override mode appends include after creating a backup copy
   local nano_dir="${HOME}/.nano"
   local nano_rc="${HOME}/.nanorc"
   local include_line='include ~/.nano/*.nanorc'
@@ -402,6 +428,7 @@ configure_nano_syntax() {
 }
 
 print_checks() {
+  # Traffic-light output gives an easy visual summary of final state.
   printf '🚦 Post-install checks\n'
   if command -v brew >/dev/null 2>&1; then
     printf '🟢 brew: %s\n' "$(brew --version | awk 'NR==1{print $0}')"
@@ -435,6 +462,7 @@ print_checks() {
 }
 
 info "🚀 Starting dotfiles install..."
+# Inventory precedence: defaults first, optional host overlay second.
 apply_inventory_file "${INVENTORY_DIR}/default.yaml"
 if [[ -n "$HOST" ]]; then
   host_file="${INVENTORY_DIR}/hosts/${HOST}.yaml"
@@ -450,6 +478,7 @@ debug "effective_create_home_pyver=${CREATE_HOME_PYVER}"
 debug "effective_install_inference=${INSTALL_INFERENCE}"
 debug "effective_skel_profile=${SKEL_PROFILE}"
 
+# Optional apt path for Linux hosts. Disabled in brew-only or no-apt modes.
 if [[ "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
   install_apt_baseline
   if command -v locale-gen >/dev/null 2>&1; then
@@ -464,6 +493,7 @@ fi
 
 install_brew_if_missing
 
+# Install package manifests.
 BREW_PKGS_FILE="${PKG_DIR}/brew-packages.txt"
 if [[ -f "$BREW_PKGS_FILE" ]]; then
   install_brew_from_file "$BREW_PKGS_FILE"
@@ -476,6 +506,7 @@ if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
   fi
 fi
 
+# uv is useful for modern Python tooling workflows.
 if ! command -v uv >/dev/null 2>&1; then
   info "🐍 Installing uv..."
   run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -483,12 +514,14 @@ else
   ok "uv is available."
 fi
 
+# Inference tools are explicitly opt-in.
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
   info "🤖 Installing optional inference tools..."
   run_pipe "curl -fsSL https://ollama.ai/install.sh | sh || true"
   run_pipe "curl -fsSL https://llmfit.axjns.dev/install.sh | sh || true"
 fi
 
+# We intentionally do not install/compile pyenv Python versions here.
 if command -v pyenv >/dev/null 2>&1; then
   if pyenv versions --bare | grep -Fxq "$PYVER"; then
     ok "pyenv has ${PYVER} installed."
@@ -497,10 +530,12 @@ if command -v pyenv >/dev/null 2>&1; then
   fi
 fi
 
+# Apply user config and optional editor/prompt enhancements.
 deploy_skel_profile "$SKEL_PROFILE"
 configure_starship_prompt
 configure_nano_syntax
 
+# ~/.python-version is only created/changed when explicitly enabled.
 if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   pyver_file="${HOME}/.python-version"
   if [[ -f "$pyver_file" && "$OVERRIDE" -eq 0 ]]; then
@@ -521,6 +556,7 @@ if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   fi
 fi
 
+# Offer shell switch only when current shell is not zsh.
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   if [[ "$ASSUME_YES" -eq 0 ]]; then
     confirm_or_die "Change default shell to zsh?"
