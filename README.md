@@ -7,6 +7,7 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 - 🧩 Default skel profile deployment
 - 🌃 Starship Tokyo Night preset by default
 - 📝 Nano syntax highlighting via nanorc
+- 🤖 Optional inference tools (`--install-inference`: ollama + llmfit)
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (preserves existing files by default)
