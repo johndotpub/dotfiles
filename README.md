@@ -1,27 +1,81 @@
-Unlicense
----------
+# dotfiles (brew-first bootstrap)
 
-This is free and unencumbered software released into the public domain.
+This repo contains a brew-first, idempotent bootstrap for Linux/WSL with:
 
-Anyone is free to copy, modify, publish, use, compile, sell, or
-distribute this software, either in source code form or as a compiled
-binary, for any purpose, commercial or non-commercial, and by any
-means.
+- A release-verifying `bootstrap.sh`
+- An installer with dry-run/force/profile flags
+- Inventory + skel profiles
+- Package manifests for brew and minimal apt fallback
 
-In jurisdictions that recognize copyright laws, the author or authors
-of this software dedicate any and all copyright interest in the
-software to the public domain. We make this dedication for the benefit
-of the public at large and to the detriment of our heirs and
-successors. We intend this dedication to be an overt act of
-relinquishment in perpetuity of all present and future rights to this
-software under copyright law.
+## Layout
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS BE LIABLE FOR ANY CLAIM, DAMAGES OR
-OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
-ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
-OTHER DEALINGS IN THE SOFTWARE.
+```text
+.
+├── bootstrap.sh
+├── install.sh
+├── inventory/
+│   ├── default.yaml
+│   └── hosts/laptop.yaml
+├── packages/
+│   ├── brew-packages.txt
+│   └── apt-minimal.txt
+├── scripts/
+│   ├── setup-pyenv.sh
+│   ├── setup-starship.sh
+│   └── post-install-checks.sh
+└── skel/
+    └── default/
+        ├── .bash_profile
+        ├── .bashrc
+        ├── .zshrc
+        ├── .profile
+        ├── .gitconfig
+        ├── .ssh/config
+        └── .config/starship.toml
+```
 
-For more information, please refer to <http://unlicense.org/>
+## Local install
+
+```bash
+chmod +x install.sh
+./install.sh --host laptop --pyver 3.12.12 --dry-run
+./install.sh --host laptop --pyver 3.12.12 -y
+```
+
+## Release-verified bootstrap
+
+```bash
+curl -fsSL https://your.domain.example/bootstrap.sh | bash -s -- --tag v1.0.0 --host laptop
+```
+
+`bootstrap.sh` downloads release assets, verifies SHA256, optionally verifies GPG signature for the checksum file, then runs `install.sh`.
+
+## Installer flags
+
+- `--tag <tag>`
+- `--host <host>`
+- `--pyver <ver>`
+- `--create-home-pyver`
+- `--install-inference`
+- `--dry-run`
+- `--force`
+- `--brew-only`
+- `--no-apt`
+- `--verbose`
+- `--from-release` (set internally by bootstrap)
+
+## Build a release artifact manually
+
+```bash
+TAG=v1.0.0
+REPO_NAME="$(basename "$PWD")"
+mkdir -p dist
+tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
+(cd dist && sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256")
+```
+
+## Notes on migration from old `.skel`
+
+- Legacy Bash startup behavior is preserved under `skel/default/.bashrc` and `.bash_profile`.
+- Optional old bootstrap handoff is still supported if `~/.dot/bootstrap/startup.sh` exists.
+- Existing files in `$HOME` are backed up by default as `*.bak.<timestamp>`.

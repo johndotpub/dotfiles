@@ -1,0 +1,48 @@
+name: Build release tarball
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Create tarball + checksum
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          mkdir -p dist
+          tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
+          (
+            cd dist
+            sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256"
+          )
+
+      - name: Sign checksum (optional)
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
+            echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+            gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
+              --output "dist/${REPO_NAME}-${TAG}.tar.gz.sha256.asc" \
+              --detach-sign "dist/${REPO_NAME}-${TAG}.tar.gz.sha256"
+          fi
+
+      - name: Publish release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.tar.gz
+            dist/*.sha256
+            dist/*.asc
