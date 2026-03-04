@@ -6,17 +6,26 @@ on:
 
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Set script permissions
         run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
 
-      - name: Install shellcheck
+      - name: Install shellcheck (Linux)
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y shellcheck
+
+      - name: Install shellcheck (macOS)
+        if: runner.os == 'macOS'
+        run: brew install shellcheck
 
       - name: Shell syntax checks
         run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh

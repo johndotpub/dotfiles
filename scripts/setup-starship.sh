@@ -27,7 +27,7 @@ if command -v starship >/dev/null 2>&1 && starship preset --help >/dev/null 2>&1
   starship preset tokyo-night -o "$TARGET"
   echo "Configured starship preset: tokyo-night"
 elif [[ -f "$FALLBACK" ]]; then
-  cp -a "$FALLBACK" "$TARGET"
+  cp -Rp "$FALLBACK" "$TARGET"
   echo "Configured fallback tokyo-night starship.toml"
 else
   echo "Could not configure starship preset automatically."

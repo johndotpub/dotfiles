@@ -108,31 +108,91 @@ Behavior:
 EOF
 }
 
-ARGS="$(getopt -o hfy --long help,override,force,create-home-pyver,pyver:,install-inference,no-apt,brew-only,dry-run,yes,verbose,host:,tag:,from-release,skel-dir:,packages-dir:,inventory-dir: -n "$(basename "$0")" -- "$@")" || {
-  usage
-  exit 1
-}
-eval set -- "$ARGS"
-while true; do
+# Manual argument parsing keeps behavior portable across GNU/Linux, WSL, and macOS.
+while [[ $# -gt 0 ]]; do
   case "$1" in
-    -h|--help) usage; exit 0 ;;
-    -f|--override|--force) OVERRIDE=1; shift ;;
-    --create-home-pyver) CREATE_HOME_PYVER=1; CLI_SET_CREATE_HOME_PYVER=1; shift ;;
-    --pyver) PYVER="$2"; CLI_SET_PYVER=1; shift 2 ;;
-    --install-inference) INSTALL_INFERENCE=1; CLI_SET_INSTALL_INFERENCE=1; shift ;;
-    --no-apt) NO_APT=1; shift ;;
-    --brew-only) BREW_ONLY=1; shift ;;
-    --dry-run) DRY_RUN=1; shift ;;
-    -y|--yes) ASSUME_YES=1; shift ;;
-    --verbose) VERBOSE=1; shift ;;
-    --host) HOST="$2"; shift 2 ;;
-    --tag) TAG="$2"; shift 2 ;;
-    --from-release) FROM_RELEASE=1; shift ;;
-    --skel-dir) SKEL_DIR="$2"; shift 2 ;;
-    --packages-dir) PKG_DIR="$2"; shift 2 ;;
-    --inventory-dir) INVENTORY_DIR="$2"; shift 2 ;;
-    --) shift; break ;;
-    *) usage; exit 1 ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    -f|--override|--force)
+      OVERRIDE=1
+      shift
+      ;;
+    --create-home-pyver)
+      CREATE_HOME_PYVER=1
+      CLI_SET_CREATE_HOME_PYVER=1
+      shift
+      ;;
+    --pyver)
+      [[ $# -ge 2 ]] || { err "--pyver requires a value"; exit 1; }
+      PYVER="$2"
+      CLI_SET_PYVER=1
+      shift 2
+      ;;
+    --install-inference)
+      INSTALL_INFERENCE=1
+      CLI_SET_INSTALL_INFERENCE=1
+      shift
+      ;;
+    --no-apt)
+      NO_APT=1
+      shift
+      ;;
+    --brew-only)
+      BREW_ONLY=1
+      shift
+      ;;
+    --dry-run)
+      DRY_RUN=1
+      shift
+      ;;
+    -y|--yes)
+      ASSUME_YES=1
+      shift
+      ;;
+    --verbose)
+      VERBOSE=1
+      shift
+      ;;
+    --host)
+      [[ $# -ge 2 ]] || { err "--host requires a value"; exit 1; }
+      HOST="$2"
+      shift 2
+      ;;
+    --tag)
+      [[ $# -ge 2 ]] || { err "--tag requires a value"; exit 1; }
+      TAG="$2"
+      shift 2
+      ;;
+    --from-release)
+      FROM_RELEASE=1
+      shift
+      ;;
+    --skel-dir)
+      [[ $# -ge 2 ]] || { err "--skel-dir requires a value"; exit 1; }
+      SKEL_DIR="$2"
+      shift 2
+      ;;
+    --packages-dir)
+      [[ $# -ge 2 ]] || { err "--packages-dir requires a value"; exit 1; }
+      PKG_DIR="$2"
+      shift 2
+      ;;
+    --inventory-dir)
+      [[ $# -ge 2 ]] || { err "--inventory-dir requires a value"; exit 1; }
+      INVENTORY_DIR="$2"
+      shift 2
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      err "Unknown option: $1"
+      usage
+      exit 1
+      ;;
   esac
 done
 
@@ -225,8 +285,28 @@ backup_copy() {
   if [[ -e "$path" || -L "$path" ]]; then
     local bak
     bak="${path}.bak.$(timestamp)"
-    run cp -a -- "$path" "$bak"
+    run cp -Rp "$path" "$bak"
     debug "Backed up copy ${path} -> ${bak}"
+  fi
+}
+
+copy_item() {
+  local src="$1"
+  local dest="$2"
+  run cp -Rp "$src" "$dest"
+}
+
+merge_dir_without_overwrite() {
+  local src="$1"
+  local dest="$2"
+  if command -v rsync >/dev/null 2>&1; then
+    run rsync -a --ignore-existing "${src}/" "${dest}/"
+  else
+    if cp --help 2>/dev/null | grep -q -- '--update'; then
+      run cp -R --update=none "${src}/." "${dest}/"
+    else
+      run cp -R -n "${src}/." "${dest}/"
+    fi
   fi
 }
 
@@ -329,21 +409,17 @@ deploy_skel_profile() {
     if [[ -e "$dest" || -L "$dest" ]]; then
       if [[ "$OVERRIDE" -eq 1 ]]; then
         backup_path "$dest"
-        run cp -a "$src" "$dest"
+        copy_item "$src" "$dest"
         debug "Processed ${dest} with override"
       elif [[ -d "$src" && -d "$dest" ]]; then
         info "↪️  Keeping existing ${dest} (adding missing files only)"
-        if [[ "$DRY_RUN" -eq 1 ]]; then
-          printf '🧪 DRY: cp -a --update=none %q %q\n' "${src}/." "${dest}/"
-        else
-          cp -a --update=none "${src}/." "${dest}/"
-        fi
+        merge_dir_without_overwrite "$src" "$dest"
       else
         info "↪️  Keeping existing ${dest}"
       fi
       continue
     fi
-    run cp -a "$src" "$dest"
+    copy_item "$src" "$dest"
     debug "Processed ${dest}"
   done
   shopt -u dotglob nullglob
@@ -373,7 +449,7 @@ configure_starship_prompt() {
   fi
 
   if [[ -f "$fallback" ]]; then
-    run cp -a "$fallback" "$target"
+    copy_item "$fallback" "$target"
     warn "starship preset command unavailable; applied fallback tokyo-night config."
     return 0
   fi
