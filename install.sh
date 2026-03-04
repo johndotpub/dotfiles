@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
-# Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--force] [--brew-only] [--no-apt] [--verbose] [-y]
+# Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--override] [--brew-only] [--no-apt] [--verbose] [-y]
 
-FORCE=0
+OVERRIDE=0
 CREATE_HOME_PYVER=0
 INSTALL_INFERENCE=0
 PYVER="3.12.12"
@@ -72,7 +72,8 @@ usage() {
 install.sh [options]
 Options:
   -h, --help                 Show this help
-  -f, --force                Overwrite existing files without backup
+  -f, --override             Overwrite existing files (with .bak.<date> backup)
+      --force                Backward-compatible alias for --override
       --create-home-pyver    Create ~/.python-version with --pyver value
       --pyver <ver>          Python version for ~/.python-version (default: ${PYVER})
       --install-inference    Install optional inference tools (ollama, llmfit)
@@ -90,11 +91,11 @@ Options:
 
 Behavior:
   - Existing files are preserved by default.
-  - Use --force to replace existing files.
+  - Use --override to replace existing files (always backed up first).
 EOF
 }
 
-ARGS="$(getopt -o hfy --long help,force,create-home-pyver,pyver:,install-inference,no-apt,brew-only,dry-run,yes,verbose,host:,tag:,from-release,skel-dir:,packages-dir:,inventory-dir: -n "$(basename "$0")" -- "$@")" || {
+ARGS="$(getopt -o hfy --long help,override,force,create-home-pyver,pyver:,install-inference,no-apt,brew-only,dry-run,yes,verbose,host:,tag:,from-release,skel-dir:,packages-dir:,inventory-dir: -n "$(basename "$0")" -- "$@")" || {
   usage
   exit 1
 }
@@ -102,7 +103,7 @@ eval set -- "$ARGS"
 while true; do
   case "$1" in
     -h|--help) usage; exit 0 ;;
-    -f|--force) FORCE=1; shift ;;
+    -f|--override|--force) OVERRIDE=1; shift ;;
     --create-home-pyver) CREATE_HOME_PYVER=1; CLI_SET_CREATE_HOME_PYVER=1; shift ;;
     --pyver) PYVER="$2"; CLI_SET_PYVER=1; shift 2 ;;
     --install-inference) INSTALL_INFERENCE=1; CLI_SET_INSTALL_INFERENCE=1; shift ;;
@@ -196,15 +197,20 @@ read_package_file() {
 backup_path() {
   local path="$1"
   if [[ -e "$path" || -L "$path" ]]; then
-    if [[ "$FORCE" -eq 1 ]]; then
-      run rm -rf -- "$path"
-      debug "Removed existing path (force): $path"
-    else
-      local bak
-      bak="${path}.bak.$(timestamp)"
-      run mv -- "$path" "$bak"
-      debug "Backed up ${path} -> ${bak}"
-    fi
+    local bak
+    bak="${path}.bak.$(timestamp)"
+    run mv -- "$path" "$bak"
+    debug "Backed up ${path} -> ${bak}"
+  fi
+}
+
+backup_copy() {
+  local path="$1"
+  if [[ -e "$path" || -L "$path" ]]; then
+    local bak
+    bak="${path}.bak.$(timestamp)"
+    run cp -a -- "$path" "$bak"
+    debug "Backed up copy ${path} -> ${bak}"
   fi
 }
 
@@ -300,10 +306,10 @@ deploy_skel_profile() {
     base="$(basename "$src")"
     dest="${HOME}/${base}"
     if [[ -e "$dest" || -L "$dest" ]]; then
-      if [[ "$FORCE" -eq 1 ]]; then
+      if [[ "$OVERRIDE" -eq 1 ]]; then
         backup_path "$dest"
         run cp -a "$src" "$dest"
-        debug "Processed ${dest} with force"
+        debug "Processed ${dest} with override"
       elif [[ -d "$src" && -d "$dest" ]]; then
         info "↪️  Keeping existing ${dest} (adding missing files only)"
         if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -320,6 +326,79 @@ deploy_skel_profile() {
     debug "Processed ${dest}"
   done
   shopt -u dotglob nullglob
+}
+
+configure_starship_prompt() {
+  local target="${HOME}/.config/starship.toml"
+  local fallback="${SKEL_DIR}/${SKEL_PROFILE}/.config/starship.toml"
+
+  if [[ -f "$target" && "$OVERRIDE" -eq 0 ]]; then
+    info "↪️  Keeping existing ${target}"
+    return 0
+  fi
+
+  if [[ -f "$target" && "$OVERRIDE" -eq 1 ]]; then
+    backup_path "$target"
+  fi
+
+  run mkdir -p "${HOME}/.config"
+
+  if command -v starship >/dev/null 2>&1 && starship preset --help >/dev/null 2>&1; then
+    run starship preset tokyo-night -o "$target"
+    ok "Configured starship preset: tokyo-night"
+    return 0
+  fi
+
+  if [[ -f "$fallback" ]]; then
+    run cp -a "$fallback" "$target"
+    warn "starship preset command unavailable; applied fallback tokyo-night config."
+    return 0
+  fi
+
+  warn "starship config not written (no preset command and no fallback file)."
+}
+
+configure_nano_syntax() {
+  local nano_dir="${HOME}/.nano"
+  local nano_rc="${HOME}/.nanorc"
+  local include_line='include ~/.nano/*.nanorc'
+
+  info "📝 Ensuring nano syntax highlighting..."
+  if [[ ! -d "$nano_dir" ]]; then
+    run git clone --depth 1 https://github.com/scopatz/nanorc.git "$nano_dir"
+  else
+    info "↪️  Keeping existing ${nano_dir}"
+  fi
+
+  if [[ -d "$nano_dir" ]]; then
+    run make -C "$nano_dir" install || true
+  fi
+
+  if [[ -f "$nano_rc" ]]; then
+    if grep -Fxq "$include_line" "$nano_rc"; then
+      debug "${nano_rc} already includes nanorc syntax files."
+      return 0
+    fi
+    if [[ "$OVERRIDE" -eq 1 ]]; then
+      backup_copy "$nano_rc"
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        printf '🧪 DRY: printf %q >> %q\n' "${include_line}\n" "$nano_rc"
+      else
+        printf '\n%s\n' "$include_line" >> "$nano_rc"
+      fi
+      ok "Updated ${nano_rc} to include nanorc syntax files."
+    else
+      info "↪️  Keeping existing ${nano_rc} (use --override to append nanorc include)"
+    fi
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: printf %q > %q\n' "${include_line}\n" "$nano_rc"
+  else
+    printf '%s\n' "$include_line" > "$nano_rc"
+  fi
+  ok "Configured ${nano_rc} with nanorc include."
 }
 
 print_checks() {
@@ -346,6 +425,12 @@ print_checks() {
     printf '🟢 python3: %s %s\n' "$(command -v python3)" "$(python3 --version 2>/dev/null || true)"
   else
     printf '🔴 python3: not found\n'
+  fi
+
+  if command -v nano >/dev/null 2>&1; then
+    printf '🟢 nano: %s\n' "$(nano --version 2>/dev/null | awk 'NR==1{print $0}')"
+  else
+    printf '🟡 nano: not found (optional)\n'
   fi
 }
 
@@ -413,11 +498,21 @@ if command -v pyenv >/dev/null 2>&1; then
 fi
 
 deploy_skel_profile "$SKEL_PROFILE"
+configure_starship_prompt
+configure_nano_syntax
 
 if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   pyver_file="${HOME}/.python-version"
-  if [[ -f "$pyver_file" && "$FORCE" -eq 0 ]]; then
+  if [[ -f "$pyver_file" && "$OVERRIDE" -eq 0 ]]; then
     info "↪️  Keeping existing ${pyver_file}"
+  elif [[ -f "$pyver_file" && "$OVERRIDE" -eq 1 ]]; then
+    backup_path "$pyver_file"
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf '🧪 DRY: echo %q > %q\n' "$PYVER" "$pyver_file"
+    else
+      printf '%s\n' "$PYVER" > "$pyver_file"
+      ok "Configured ${pyver_file} (${PYVER})"
+    fi
   elif [[ "$DRY_RUN" -eq 1 ]]; then
     printf '🧪 DRY: echo %q > %q\n' "$PYVER" "$pyver_file"
   else
