@@ -1,21 +1,41 @@
-# dotfiles (brew-first bootstrap)
+# ✨ dotfiles (brew-first bootstrap)
 
-This repo contains a brew-first, idempotent bootstrap for Linux/WSL with:
+Clean, straightforward dotfiles setup for Linux/WSL:
 
-- A release-verifying `bootstrap.sh`
-- An installer with dry-run/force/profile flags
-- Inventory + skel profiles
-- Package manifests for brew and minimal apt fallback
+- 🍺 Brew-first package install
+- 🧾 Release verification (SHA256 + optional GPG on checksum)
+- 🧩 Default skel profile deployment
+- 🧪 Dry-run support
+- 🔎 Verbose debug mode when needed
 
-## Layout
+## 🚀 Quick start (local)
+
+```bash
+chmod +x install.sh
+./install.sh --dry-run --verbose
+./install.sh -y
+```
+
+## 🌐 Quick start (Pages bootstrap)
+
+```bash
+curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0
+```
+
+Optional if you add extra host overlays later:
+
+```bash
+curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.0.0 --host <name>
+```
+
+## 🗂️ Project layout
 
 ```text
 .
 ├── bootstrap.sh
 ├── install.sh
 ├── inventory/
-│   ├── default.yaml
-│   └── hosts/laptop.yaml
+│   └── default.yaml
 ├── packages/
 │   ├── brew-packages.txt
 │   └── apt-minimal.txt
@@ -34,26 +54,17 @@ This repo contains a brew-first, idempotent bootstrap for Linux/WSL with:
         └── .config/starship.toml
 ```
 
-## Local install
+## 📣 Output style
 
-```bash
-chmod +x install.sh
-./install.sh --host laptop --pyver 3.12.12 --dry-run
-./install.sh --host laptop --pyver 3.12.12 -y
-```
+- Standard mode: concise stage updates + status emojis
+- `--verbose`: extra `🔎` debug lines
+- `--dry-run`: commands are printed with `🧪` and not executed
+- Post-install checks use traffic lights (`🟢 / 🟡 / 🔴`)
 
-## Release-verified bootstrap
-
-```bash
-curl -fsSL https://your.domain.example/bootstrap.sh | bash -s -- --tag v1.0.0 --host laptop
-```
-
-`bootstrap.sh` downloads release assets, verifies SHA256, optionally verifies GPG signature for the checksum file, then runs `install.sh`.
-
-## Installer flags
+## ⚙️ Installer flags
 
 - `--tag <tag>`
-- `--host <host>`
+- `--host <host>` (optional; only if `inventory/hosts/<host>.yaml` exists)
 - `--pyver <ver>`
 - `--create-home-pyver`
 - `--install-inference`
@@ -64,7 +75,7 @@ curl -fsSL https://your.domain.example/bootstrap.sh | bash -s -- --tag v1.0.0 --
 - `--verbose`
 - `--from-release` (set internally by bootstrap)
 
-## Build a release artifact manually
+## 📦 Build a release artifact manually
 
 ```bash
 TAG=v1.0.0
@@ -74,8 +85,12 @@ tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
 (cd dist && sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256")
 ```
 
-## Notes on migration from old `.skel`
+## 🧠 Migration notes
 
-- Legacy Bash startup behavior is preserved under `skel/default/.bashrc` and `.bash_profile`.
-- Optional old bootstrap handoff is still supported if `~/.dot/bootstrap/startup.sh` exists.
-- Existing files in `$HOME` are backed up by default as `*.bak.<timestamp>`.
+- Legacy Bash startup behavior is preserved in `skel/default/.bashrc` and `.bash_profile`.
+- Optional old bootstrap handoff is supported if `~/.dot/bootstrap/startup.sh` exists.
+- Existing files in `$HOME` are backed up as `*.bak.<timestamp>` unless `--force` is used.
+
+## 📜 License
+
+Released under the **Unlicense**. See [LICENSE](./LICENSE).

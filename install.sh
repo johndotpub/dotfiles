@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
-# Usage: ./install.sh [--host HOST] [--tag TAG] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--force] [--brew-only] [--no-apt] [--verbose] [-y]
+# Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--force] [--brew-only] [--no-apt] [--verbose] [-y]
 
 FORCE=0
 CREATE_HOME_PYVER=0
@@ -21,7 +21,6 @@ FROM_RELEASE=0
 CLI_SET_PYVER=0
 CLI_SET_CREATE_HOME_PYVER=0
 CLI_SET_INSTALL_INFERENCE=0
-CLI_SET_SKEL_PROFILE=0
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKEL_DIR="${REPO_DIR}/skel"
@@ -31,27 +30,40 @@ SKEL_PROFILE="default"
 
 timestamp() { date +%Y%m%d%H%M%S; }
 
-log() { printf '%s\n' "$*"; }
-debug() { if [[ "$VERBOSE" -eq 1 ]]; then printf '[debug] %s\n' "$*"; fi; }
+info() { printf 'ℹ️  %s\n' "$*"; }
+ok() { printf '✅ %s\n' "$*"; }
+warn() { printf '⚠️  %s\n' "$*"; }
+err() { printf '❌ %s\n' "$*" >&2; }
+debug() {
+  if [[ "$VERBOSE" -eq 1 ]]; then
+    printf '🔎 %s\n' "$*"
+  fi
+}
+
+format_cmd() {
+  local out="" arg=""
+  for arg in "$@"; do
+    out+=" $(printf '%q' "$arg")"
+  done
+  printf '%s' "${out# }"
+}
 
 run() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY:'
-    for arg in "$@"; do
-      printf ' %q' "$arg"
-    done
-    printf '\n'
+    printf '🧪 DRY: %s\n' "$(format_cmd "$@")"
     return 0
   fi
+  [[ "$VERBOSE" -eq 1 ]] && printf '🔎 RUN: %s\n' "$(format_cmd "$@")"
   "$@"
 }
 
 run_pipe() {
   local pipeline="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY: %s\n' "$pipeline"
+    printf '🧪 DRY: %s\n' "$pipeline"
     return 0
   fi
+  [[ "$VERBOSE" -eq 1 ]] && printf '🔎 RUN: %s\n' "$pipeline"
   bash -lc "$pipeline"
 }
 
@@ -59,21 +71,21 @@ usage() {
   cat <<EOF
 install.sh [options]
 Options:
-  -h, --help                Show this help
-  -f, --force               Overwrite existing files without backup
-      --create-home-pyver   Create ~/.python-version with --pyver value
-      --pyver <ver>         Python version for pyenv (default: ${PYVER})
-      --install-inference   Install optional inference tools (ollama, llmfit)
-      --no-apt              Skip apt installs
-      --brew-only           Prefer brew only; skip apt fallback
-      --dry-run             Print actions without executing
-  -y, --yes                 Assume yes for prompts
-      --verbose             Verbose logging
-      --host <host>         Inventory host profile to apply
-      --tag <tag>           Release tag (informational)
-      --from-release        Informational flag set by bootstrap
-      --skel-dir <path>     Use alternate skel directory
-      --packages-dir <path> Use alternate packages directory
+  -h, --help                 Show this help
+  -f, --force                Overwrite existing files without backup
+      --create-home-pyver    Create ~/.python-version with --pyver value
+      --pyver <ver>          Python version for ~/.python-version (default: ${PYVER})
+      --install-inference    Install optional inference tools (ollama, llmfit)
+      --no-apt               Skip apt installs
+      --brew-only            Prefer brew only; skip apt fallback
+      --dry-run              Print actions without executing
+  -y, --yes                  Assume yes for prompts
+      --verbose              Verbose logging
+      --host <host>          Optional inventory overlay: inventory/hosts/<host>.yaml
+      --tag <tag>            Release tag (informational)
+      --from-release         Informational flag set by bootstrap
+      --skel-dir <path>      Use alternate skel directory
+      --packages-dir <path>  Use alternate packages directory
       --inventory-dir <path> Use alternate inventory directory
 EOF
 }
@@ -106,12 +118,10 @@ while true; do
   esac
 done
 
-if [[ "$VERBOSE" -eq 1 ]]; then
-  debug "repo_dir=${REPO_DIR}"
-  debug "tag=${TAG}"
-  debug "host=${HOST}"
-  debug "from_release=${FROM_RELEASE}"
-fi
+debug "repo_dir=${REPO_DIR}"
+debug "tag=${TAG:-<none>}"
+debug "host=${HOST:-<none>}"
+debug "from_release=${FROM_RELEASE}"
 
 SUDO_BIN=""
 if [[ "$(id -u)" -ne 0 ]] && command -v sudo >/dev/null 2>&1; then
@@ -134,7 +144,7 @@ confirm_or_die() {
   read -r -p "${prompt} [y/N] " ans
   case "$ans" in
     [Yy]*) return 0 ;;
-    *) log "Aborted."; exit 1 ;;
+    *) err "Aborted."; exit 1 ;;
   esac
 }
 
@@ -170,10 +180,8 @@ apply_inventory_file() {
     val="$(yaml_get_scalar "install_inference" "$file" || true)"
     [[ -n "$val" ]] && INSTALL_INFERENCE="$(bool_to_int "$val" "$INSTALL_INFERENCE")"
   fi
-  if [[ "$CLI_SET_SKEL_PROFILE" -eq 0 ]]; then
-    val="$(yaml_get_scalar "skel_profile" "$file" || true)"
-    [[ -n "$val" ]] && SKEL_PROFILE="$val"
-  fi
+  val="$(yaml_get_scalar "skel_profile" "$file" || true)"
+  [[ -n "$val" ]] && SKEL_PROFILE="$val"
 }
 
 read_package_file() {
@@ -216,18 +224,20 @@ ensure_brew_shellenv() {
 
 install_brew_if_missing() {
   if ensure_brew_shellenv; then
+    ok "Homebrew is available."
     return 0
   fi
-  log "Installing Homebrew..."
+  info "🍺 Installing Homebrew..."
   run_pipe "NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
   if [[ "$DRY_RUN" -eq 1 ]]; then
     debug "Dry-run mode: skipping post-install brew shellenv verification"
     return 0
   fi
   ensure_brew_shellenv || {
-    log "Failed to initialize Homebrew after install."
+    err "Failed to initialize Homebrew after install."
     exit 1
   }
+  ok "Homebrew installed and initialized."
 }
 
 install_apt_baseline() {
@@ -240,6 +250,7 @@ install_apt_baseline() {
     debug "apt-get not found; skipping apt baseline"
     return 0
   fi
+  info "📦 Installing minimal apt prerequisites..."
   run_root env DEBIAN_FRONTEND=noninteractive apt-get update -y
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
 }
@@ -248,13 +259,14 @@ install_apt_from_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
   if ! command -v apt-get >/dev/null 2>&1; then
-    debug "apt-get not found; skipping apt file installs"
+    debug "apt-get not found; skipping apt fallback installs"
     return 0
   fi
   mapfile -t pkgs < <(read_package_file "$file")
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
+  info "📦 Installing apt fallback packages..."
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
 }
 
@@ -265,6 +277,7 @@ install_brew_from_file() {
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
+  info "🍺 Installing brew packages..."
   run brew install "${pkgs[@]}" || true
 }
 
@@ -272,9 +285,10 @@ deploy_skel_profile() {
   local profile="$1"
   local src_root="${SKEL_DIR}/${profile}"
   if [[ ! -d "$src_root" ]]; then
-    log "No skel profile found at ${src_root}; skipping skel deployment."
+    warn "No skel profile found at ${src_root}; skipping deployment."
     return 0
   fi
+  info "🧩 Deploying skel profile: ${profile}"
   shopt -s dotglob nullglob
   local src base dest
   for src in "${src_root}"/*; do
@@ -289,15 +303,48 @@ deploy_skel_profile() {
   shopt -u dotglob nullglob
 }
 
+print_checks() {
+  printf '🚦 Post-install checks\n'
+  if command -v brew >/dev/null 2>&1; then
+    printf '🟢 brew: %s\n' "$(brew --version | awk 'NR==1{print $0}')"
+  else
+    printf '🔴 brew: not found\n'
+  fi
+
+  if command -v starship >/dev/null 2>&1; then
+    printf '🟢 starship: %s\n' "$(starship --version 2>/dev/null || echo 'available')"
+  else
+    printf '🔴 starship: not found\n'
+  fi
+
+  if command -v pyenv >/dev/null 2>&1; then
+    printf '🟢 pyenv: %s\n' "$(pyenv --version 2>/dev/null || echo 'available')"
+  else
+    printf '🟡 pyenv: not found (optional)\n'
+  fi
+
+  if command -v python3 >/dev/null 2>&1; then
+    printf '🟢 python3: %s %s\n' "$(command -v python3)" "$(python3 --version 2>/dev/null || true)"
+  else
+    printf '🔴 python3: not found\n'
+  fi
+}
+
+info "🚀 Starting dotfiles install..."
 apply_inventory_file "${INVENTORY_DIR}/default.yaml"
 if [[ -n "$HOST" ]]; then
   host_file="${INVENTORY_DIR}/hosts/${HOST}.yaml"
   if [[ ! -f "$host_file" ]]; then
-    log "Host profile not found: ${host_file}"
+    err "Host profile not found: ${host_file}"
     exit 1
   fi
   apply_inventory_file "$host_file"
 fi
+
+debug "effective_pyver=${PYVER}"
+debug "effective_create_home_pyver=${CREATE_HOME_PYVER}"
+debug "effective_install_inference=${INSTALL_INFERENCE}"
+debug "effective_skel_profile=${SKEL_PROFILE}"
 
 if [[ "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
   install_apt_baseline
@@ -315,48 +362,46 @@ install_brew_if_missing
 
 BREW_PKGS_FILE="${PKG_DIR}/brew-packages.txt"
 if [[ -f "$BREW_PKGS_FILE" ]]; then
-  log "Installing brew packages from ${BREW_PKGS_FILE}"
   install_brew_from_file "$BREW_PKGS_FILE"
 fi
 
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
   APT_FALLBACK_FILE="${PKG_DIR}/apt-minimal.txt"
   if [[ -f "$APT_FALLBACK_FILE" ]]; then
-    log "Installing apt fallback packages from ${APT_FALLBACK_FILE}"
     install_apt_from_file "$APT_FALLBACK_FILE" || true
   fi
 fi
 
 if ! command -v uv >/dev/null 2>&1; then
-  log "Installing uv..."
+  info "🐍 Installing uv..."
   run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
+else
+  ok "uv is available."
 fi
 
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-  log "Installing optional inference tools..."
+  info "🤖 Installing optional inference tools..."
   run_pipe "curl -fsSL https://ollama.ai/install.sh | sh || true"
   run_pipe "curl -fsSL https://llmfit.axjns.dev/install.sh | sh || true"
 fi
 
 if command -v pyenv >/dev/null 2>&1; then
-  if ! pyenv versions --bare | grep -Fxq "$PYVER"; then
-    run pyenv install -s "$PYVER"
+  if pyenv versions --bare | grep -Fxq "$PYVER"; then
+    ok "pyenv has ${PYVER} installed."
+  else
+    warn "pyenv version ${PYVER} is not installed (installer does not manage pyenv versions)."
   fi
-  run pyenv global "$PYVER"
-else
-  log "pyenv not found in PATH; ensure brew package install succeeded."
 fi
 
-log "Deploying skel profile: ${SKEL_PROFILE}"
 deploy_skel_profile "$SKEL_PROFILE"
 
 if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf 'DRY: echo %q > %q\n' "$PYVER" "${HOME}/.python-version"
+    printf '🧪 DRY: echo %q > %q\n' "$PYVER" "${HOME}/.python-version"
   else
     printf '%s\n' "$PYVER" > "${HOME}/.python-version"
   fi
-  debug "Wrote ${HOME}/.python-version"
+  ok "Configured ${HOME}/.python-version (${PYVER})"
 fi
 
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
@@ -366,26 +411,5 @@ if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   run chsh -s "$(command -v zsh)" || true
 fi
 
-log "---- Post install checks ----"
-if command -v brew >/dev/null 2>&1; then
-  log "brew: $(brew --version | awk 'NR==1 {print $0}')"
-else
-  log "brew: not found"
-fi
-if command -v starship >/dev/null 2>&1; then
-  log "starship: $(starship --version 2>/dev/null || echo not found)"
-else
-  log "starship: not found"
-fi
-if command -v pyenv >/dev/null 2>&1; then
-  log "pyenv: $(pyenv --version 2>/dev/null || echo not found)"
-else
-  log "pyenv: not found"
-fi
-if command -v python >/dev/null 2>&1; then
-  log "python: $(command -v python) $(python --version 2>/dev/null || true)"
-else
-  log "python: not found"
-fi
-
-log "Install script finished."
+print_checks
+ok "Install script finished."
