@@ -230,7 +230,9 @@ confirm_or_die() {
 }
 
 bool_to_int() {
-  case "${1,,}" in
+  local normalized
+  normalized="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
+  case "$normalized" in
     true|yes|y|on|1) printf '1' ;;
     false|no|n|off|0) printf '0' ;;
     *) printf '%s' "$2" ;;
@@ -371,7 +373,11 @@ install_apt_from_file() {
     debug "apt-get not found; skipping apt fallback installs"
     return 0
   fi
-  mapfile -t pkgs < <(read_package_file "$file")
+  local pkgs=()
+  local pkg=""
+  while IFS= read -r pkg; do
+    pkgs+=("$pkg")
+  done < <(read_package_file "$file")
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
@@ -382,12 +388,19 @@ install_apt_from_file() {
 install_brew_from_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
-  mapfile -t pkgs < <(read_package_file "$file")
+  local pkgs=()
+  local pkg=""
+  while IFS= read -r pkg; do
+    pkgs+=("$pkg")
+  done < <(read_package_file "$file")
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
   info "🍺 Installing brew packages..."
-  run brew install "${pkgs[@]}" || true
+  if ! run brew install "${pkgs[@]}"; then
+    warn "brew install failed for one or more packages listed in ${file}. Review output and retry."
+    return 1
+  fi
 }
 
 deploy_skel_profile() {

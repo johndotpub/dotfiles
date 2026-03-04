@@ -18,6 +18,52 @@ HOST=""
 PYVER=""
 ASSUME_YES=0
 
+verify_checksum() {
+  local checksum_file="$1"
+  local artifact_file="$2"
+
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum -c "$checksum_file"
+    return 0
+  fi
+
+  local expected actual
+  expected="$(awk '{print $1}' "$checksum_file" | awk 'NR==1 {print $1}')"
+  if [[ -z "$expected" ]]; then
+    echo "❌ Could not parse expected SHA256 from ${checksum_file}."
+    return 1
+  fi
+
+  if command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$artifact_file" | awk '{print $1}')"
+  elif command -v python3 >/dev/null 2>&1; then
+    actual="$(python3 - "$artifact_file" <<'PY'
+import hashlib
+import sys
+
+path = sys.argv[1]
+digest = hashlib.sha256()
+with open(path, "rb") as f:
+    while True:
+        chunk = f.read(1024 * 1024)
+        if not chunk:
+            break
+        digest.update(chunk)
+print(digest.hexdigest())
+PY
+)"
+  else
+    echo "❌ No SHA256 tool found (need sha256sum, shasum, or python3)."
+    return 1
+  fi
+
+  if [[ "$actual" != "$expected" ]]; then
+    echo "❌ SHA256 mismatch for ${artifact_file}."
+    return 1
+  fi
+  echo "${artifact_file}: OK"
+}
+
 # Print usage and exit with optional code.
 usage() {
   local code="${1:-1}"
@@ -64,17 +110,21 @@ curl -fsSLo "${ASSET_BASENAME}.sha256" "${SHA_URL}"
 # Optional GPG verification for checksum file
 # If a detached signature is published for the checksum, verify it.
 if curl -fsSLo /dev/null "${SHA_SIG_URL}" 2>/dev/null; then
-  echo "🔐 Found checksum signature; verifying with gpg..."
-  curl -fsSLo "${ASSET_BASENAME}.sha256.asc" "${SHA_SIG_URL}"
-  if ! gpg --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256"; then
-    echo "❌ GPG verification failed; aborting."
-    exit 2
+  if ! command -v gpg >/dev/null 2>&1; then
+    echo "ℹ️ Skipping GPG verification: 'gpg' is not installed."
+  else
+    echo "🔐 Found checksum signature; verifying with gpg..."
+    curl -fsSLo "${ASSET_BASENAME}.sha256.asc" "${SHA_SIG_URL}"
+    if ! gpg --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256"; then
+      echo "❌ GPG verification failed; aborting."
+      exit 2
+    fi
   fi
 fi
 
 echo "🧾 Verifying checksum..."
 # This validates the tarball bytes before we execute anything from it.
-sha256sum -c "${ASSET_BASENAME}.sha256"
+verify_checksum "${ASSET_BASENAME}.sha256" "${ASSET_BASENAME}"
 
 echo "📦 Extracting release..."
 mkdir -p repo
