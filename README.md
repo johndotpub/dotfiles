@@ -6,6 +6,8 @@
 
 Clean, straightforward dotfiles setup for Linux/WSL:
 
+**Supported OS:** Ubuntu, Ubuntu (WSL), and macOS.
+
 - 🍺 Brew-first package install
 - 🧾 Release verification (SHA256 + optional GPG on checksum)
 - 🧩 Default skel profile deployment
