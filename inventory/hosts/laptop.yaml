@@ -1,9 +1,0 @@
-extends: default
-profile: laptop
-brew_packages:
-  - tmux
-  - htop
-  - python@3.12
-create_home_pyver: true
-install_inference: true
-skel_profile: "default"

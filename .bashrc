@@ -16,7 +16,6 @@ fi
 WHOAMI=`whoami`
 
 PATH=$PATH:$HOME/.local/bin:$HOME/bin
-PATH="/usr/local/heroku/bin:$PATH"
 export PATH
 
 ########

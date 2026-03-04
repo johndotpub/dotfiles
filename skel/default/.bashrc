@@ -8,7 +8,6 @@ if [ -f /etc/bashrc ]; then
 fi
 
 PATH="${PATH}:${HOME}/.local/bin:${HOME}/bin"
-PATH="/usr/local/heroku/bin:${PATH}"
 export PATH
 
 # Homebrew environment (Linux + macOS)
