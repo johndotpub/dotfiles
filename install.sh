@@ -90,7 +90,7 @@ run_pipe() {
     return 0
   fi
   [[ "$VERBOSE" -eq 1 ]] && printf '🔎 RUN: %s\n' "$pipeline"
-  bash -lc "$pipeline"
+  bash -c "$pipeline"
 }
 
 usage() {
@@ -645,7 +645,14 @@ fi
 # uv is useful for modern Python tooling workflows.
 if ! command -v uv >/dev/null 2>&1; then
   info "🐍 Installing uv..."
-  run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  if command -v brew >/dev/null 2>&1; then
+    if ! run brew install uv; then
+      warn "brew install uv failed; falling back to upstream installer script."
+      run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
+    fi
+  else
+    run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  fi
 else
   ok "uv is available."
 fi
