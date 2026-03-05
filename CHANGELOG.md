@@ -2,32 +2,6 @@
 
 All notable changes to this project are documented here.
 
-## [Unreleased] 🚧
-
-### Added ✨
-- 🔒 Installer execution lock to prevent overlapping runs from mutating the same files concurrently.
-- 🧪 Preflight phase in `install.sh` to validate required tooling early and surface actionable warnings.
-- 📋 Optional machine-readable install report via `--report-json <path>`, including per-phase status and exit code.
-- 🌐 Safer remote installer wrapper for optional inference tools (download-then-execute with retries and clear status logs).
-- 🧾 Canonical package source of truth at `packages/manifest.json`.
-- 🛠️ `scripts/generate-package-manifests.sh` to generate and verify `packages/*.txt` manifests.
-- 🧹 `scripts/check-no-root-config-duplicates.sh` to enforce DRY shell-config ownership in `skel/default/`.
-- ♻️ `scripts/verify-release-reproducible.sh` for deterministic tarball reproducibility checks.
-- 🧪 Additional integration coverage:
-  - `scripts/test-backup-collision.sh` (deterministic backup suffix behavior)
-  - `scripts/test-skel-merge-behavior.sh` (merge-missing-only behavior)
-  - `tests/installer.bats` BATS suite wrapping installer integration tests.
-
-### Changed 🔧
-- 🧩 Directory merge fallback in `install.sh` now uses explicit missing-path copy logic (instead of `cp -n`), reducing cross-platform drift and noisy warnings.
-- ✅ CI and release workflows now enforce:
-  - package manifest generation checks
-  - no duplicate repo-root shell config files
-  - expanded installer integration checks + BATS suite
-  - reproducible release artifact verification.
-- 📦 Release tarball creation switched to deterministic tar flags (`--sort=name`, normalized mtime/owner/group).
-- 📚 README updated with lock/reporting flags, package manifest workflow, reproducibility validation, and expanded CI/test notes.
-
 ## [v1.0.0] 🎉
 
 ### Added ✨
@@ -39,6 +13,9 @@ All notable changes to this project are documented here.
 - 🌐 Release-verifying bootstrap (`SHA256`, optional GPG checksum signature).
 - 🧩 Idempotent skel deployment with preserve-by-default behavior.
 - 🔎 Verbose mode, 🧪 dry-run mode, and 🚦 traffic-light post-checks.
+- 🔒 Installer execution lock to prevent overlapping runs.
+- 🧪 Installer preflight checks for required tooling.
+- 📋 Optional machine-readable install report (`--report-json <path>`) with phase status + exit code.
 - 🌃 Default Starship **Tokyo Night** preset support:
   - `skel/default/.config/starship.toml` includes the official preset.
   - Installer and `scripts/setup-starship.sh` apply `starship preset tokyo-night` when available.
@@ -48,16 +25,27 @@ All notable changes to this project are documented here.
 - 🤖 Optional inference tools behind explicit flag:
   - `--install-inference` installs **ollama** and **llmfit** via curl scripts.
   - Default behavior remains off (`install_inference: false`).
-- 📦 Expanded package manifests:
+- 📦 Expanded package manifests and source of truth:
+  - Canonical manifest: `packages/manifest.json`
+  - Generator/checker: `scripts/generate-package-manifests.sh`
   - Brew: includes `curl`, `git`, `ca-certificates`, `ripgrep`, `btop`, `bandwhich`, `dust` (plus core tools)
   - Apt fallback: includes `iftop` and `iotop`
+- 🌐 Safer remote wrapper for optional installer scripts (download-then-execute with retry).
 - ✅ CI quality gates and tests:
   - `bash -n` syntax checks
   - `shellcheck -x` linting
+  - package-manifest consistency checks
+  - no duplicate repo-root shell config checks
   - installer/bootstrap help smoke tests
   - dry-run smoke test
   - idempotency integration test (including `--override` backup assertions)
+  - backup collision test (`.bak.<date>[.<n>]`)
+  - skel merge behavior test (preserve existing + copy missing)
+  - BATS test suite (`tests/installer.bats`)
   - CI matrix on Ubuntu + macOS
+- ♻️ Release reproducibility checks:
+  - deterministic tarball creation (`--sort=name`, normalized mtime/owner/group)
+  - `scripts/verify-release-reproducible.sh`
 - 🤖 Repo guidance and collaboration templates:
   - `.github/copilot-instructions.md`
   - `.github/pull_request_template.md`
@@ -71,7 +59,8 @@ All notable changes to this project are documented here.
 - 🧪 Installer logic hardened for portability and reruns:
   - portable argument parsing (no GNU `getopt` dependency)
   - cross-platform file copy/merge behavior for Linux, WSL Ubuntu, and macOS
-- 🧰 Bash config kept minimal while zsh remains primary.
+  - explicit merge fallback logic (replacing `cp -n` fallback behavior)
+- 🧰 Canonical shell config ownership consolidated under `skel/default/` (DRY, zsh-first).
 - 📜 License standardized to canonical `UNLICENSE`.
 - 🗂️ Release notes source changed from `RELEASES.md` to `CHANGELOG.md`.
 - 🌐 README bootstrap quick start set to `https://dot.rly.wtf/bootstrap.sh`.
