@@ -53,5 +53,8 @@ jobs:
       - name: Skel merge behavior test
         run: ./test/test-skel-merge-behavior.sh
 
+      - name: Report JSON test
+        run: ./test/test-report-json.sh
+
       - name: BATS installer suite
         run: bats test/installer.bats

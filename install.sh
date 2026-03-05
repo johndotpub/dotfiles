@@ -290,7 +290,7 @@ json_escape() {
       printf -v hex '%04x' "$code"
       out+="\\u${hex}"
     else
-      printf -v char '\\%03o' "$code"
+      printf -v char '%b' "\\$(printf '%03o' "$code")"
       out+="$char"
     fi
   done < <(printf '%s' "$s" | od -An -t u1 -v | tr -s '[:space:]' '\n')
@@ -765,12 +765,25 @@ configure_nano_syntax() {
   local nano_dir="${HOME}/.nano"
   local nano_rc="${HOME}/.nanorc"
   local include_line='include ~/.nano/*.nanorc'
+  local nanorc_repo="https://github.com/scopatz/nanorc.git"
+  # Pin to a known-good commit for repeatable, less-risky installs.
+  local nanorc_ref="${NANORC_REF:-1aa64a86cf4c750e4d4788ef1a19d7a71ab641dd}"
+  local cloned=0
 
   info "📝 Ensuring nano syntax highlighting..."
   if [[ ! -d "$nano_dir" ]]; then
-    run git clone --depth 1 https://github.com/scopatz/nanorc.git "$nano_dir"
+    run git clone --depth 1 "$nanorc_repo" "$nano_dir"
+    cloned=1
   else
     info "↪️  Keeping existing ${nano_dir}"
+  fi
+
+  if [[ "$cloned" -eq 1 && -d "$nano_dir" ]]; then
+    if ! run git -C "$nano_dir" fetch --depth 1 origin "$nanorc_ref"; then
+      warn "Could not fetch pinned nanorc ref ${nanorc_ref}; continuing with cloned default branch."
+    elif ! run git -C "$nano_dir" checkout --detach "$nanorc_ref"; then
+      warn "Could not checkout pinned nanorc ref ${nanorc_ref}; continuing with cloned default branch."
+    fi
   fi
 
   if [[ -d "$nano_dir" ]]; then
@@ -802,29 +815,6 @@ configure_nano_syntax() {
     printf '%s\n' "$include_line" > "$nano_rc"
   fi
   ok "Configured ${nano_rc} with nanorc include."
-}
-
-ensure_zsh_pyenv_plugin() {
-  local zsh_dir="${HOME}/.oh-my-zsh"
-  local custom_dir="${ZSH_CUSTOM:-${zsh_dir}/custom}"
-  local custom_plugin_dir="${custom_dir}/plugins/zsh-pyenv"
-  local built_in_plugin_dir="${zsh_dir}/plugins/zsh-pyenv"
-
-  if [[ ! -d "$zsh_dir" ]]; then
-    debug "Oh My Zsh not found; skipping zsh-pyenv plugin install."
-    return 0
-  fi
-
-  if [[ -d "$custom_plugin_dir" || -d "$built_in_plugin_dir" ]]; then
-    info "↪️  zsh-pyenv plugin already available."
-    return 0
-  fi
-
-  info "🧩 Installing zsh-pyenv plugin for Oh My Zsh..."
-  run mkdir -p "${custom_dir}/plugins"
-  if ! run git clone --depth 1 https://github.com/mattberther/zsh-pyenv.git "$custom_plugin_dir"; then
-    warn "Could not install zsh-pyenv plugin automatically. You can install it later manually."
-  fi
 }
 
 print_checks() {
@@ -976,7 +966,6 @@ PHASE_CONFIG="in_progress"
 configure_starship_prompt
 deploy_skel_profile "$SKEL_PROFILE"
 configure_nano_syntax
-ensure_zsh_pyenv_plugin
 
 # ~/.python-version is managed only when CREATE_HOME_PYVER is enabled
 # (via flags or inventory).

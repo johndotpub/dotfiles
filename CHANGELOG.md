@@ -38,6 +38,7 @@ All notable changes to this project are documented here.
   - idempotency integration test (including `--override` backup assertions)
   - backup collision test (`.bak.<date>[.<n>]`)
   - skel merge behavior test (preserve existing + copy missing)
+  - report JSON validity/escaping test (`test/test-report-json.sh`)
   - BATS test suite (`test/installer.bats`)
   - test layout standardized under `test/`
   - CI matrix on Ubuntu + macOS
@@ -60,6 +61,8 @@ All notable changes to this project are documented here.
   - cross-platform file copy/merge behavior for Linux, WSL Ubuntu, and macOS
   - explicit merge fallback logic (replacing `cp -n` fallback behavior)
   - JSON report escaping now handles additional control characters safely
+- 🐚 Removed custom `zsh-pyenv` cloning flow; standardized on default Oh My Zsh `pyenv` plugin usage in `skel/default/.zshrc`.
+- 🔐 nanorc clone path now supports pinned commit installs via `NANORC_REF` (default pinned to a known-good ref).
 - 🔐 Bootstrap checksum verification now relies on native SHA256 tools (`sha256sum`/`shasum`) without Python fallback.
 - 📦 Release/reproducibility tarballs now use deterministic gzip headers (`gzip -n`) in CI and verification checks.
 - 🧰 Canonical shell config ownership consolidated under `skel/default/` (DRY, zsh-first).
