@@ -476,9 +476,22 @@ apply_inventory_file() {
   [[ -n "$val" ]] && SKEL_PROFILE="$val"
 }
 
-read_package_file() {
+read_yaml_list() {
   local file="$1"
-  awk '!/^[[:space:]]*($|#)/{print $1}' "$file"
+  local section="$2"
+  awk -v section="$section" '
+    BEGIN { in_section = 0 }
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    $0 ~ "^[[:space:]]*" section ":[[:space:]]*$" { in_section = 1; next }
+    in_section && $0 ~ "^[[:space:]]*[a-zA-Z0-9_]+:[[:space:]]*$" { in_section = 0 }
+    in_section && $0 ~ "^[[:space:]]*-[[:space:]]+" {
+      line = $0
+      sub(/^[[:space:]]*-[[:space:]]+/, "", line)
+      sub(/[[:space:]]+#.*$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line != "") print line
+    }
+  ' "$file"
 }
 
 backup_path() {
@@ -592,8 +605,9 @@ install_apt_baseline() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
 }
 
-install_apt_from_file() {
+install_apt_from_yaml() {
   local file="$1"
+  local section="$2"
   [[ -f "$file" ]] || return 0
   if ! command -v apt-get >/dev/null 2>&1; then
     debug "apt-get not found; skipping apt fallback installs"
@@ -603,7 +617,7 @@ install_apt_from_file() {
   local pkg=""
   while IFS= read -r pkg; do
     pkgs+=("$pkg")
-  done < <(read_package_file "$file")
+  done < <(read_yaml_list "$file" "$section")
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
@@ -611,14 +625,15 @@ install_apt_from_file() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
 }
 
-install_brew_from_file() {
+install_brew_from_yaml() {
   local file="$1"
+  local section="$2"
   [[ -f "$file" ]] || return 0
   local pkgs=()
   local pkg=""
   while IFS= read -r pkg; do
     pkgs+=("$pkg")
-  done < <(read_package_file "$file")
+  done < <(read_yaml_list "$file" "$section")
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
@@ -846,21 +861,25 @@ PHASE_BREW_BOOTSTRAP="in_progress"
 install_brew_if_missing
 PHASE_BREW_BOOTSTRAP="ok"
 
-# Install package manifests.
-BREW_PKGS_FILE="${PKG_DIR}/brew-packages.txt"
-if [[ -f "$BREW_PKGS_FILE" ]]; then
+PKGS_YAML_FILE="${PKG_DIR}/packages.yaml"
+if [[ ! -f "$PKGS_YAML_FILE" ]]; then
+  err "Missing package inventory: ${PKGS_YAML_FILE}"
+  exit 1
+fi
+
+# Install package inventory from packages/packages.yaml.
+if [[ -f "$PKGS_YAML_FILE" ]]; then
   PHASE_BREW_PACKAGES="in_progress"
-  install_brew_from_file "$BREW_PKGS_FILE"
+  install_brew_from_yaml "$PKGS_YAML_FILE" "brew"
   PHASE_BREW_PACKAGES="ok"
 else
   PHASE_BREW_PACKAGES="skipped"
 fi
 
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
-  APT_FALLBACK_FILE="${PKG_DIR}/apt-minimal.txt"
-  if [[ -f "$APT_FALLBACK_FILE" ]]; then
+  if [[ -f "$PKGS_YAML_FILE" ]]; then
     PHASE_APT_FALLBACK="in_progress"
-    install_apt_from_file "$APT_FALLBACK_FILE" || true
+    install_apt_from_yaml "$PKGS_YAML_FILE" "apt_minimal" || true
     PHASE_APT_FALLBACK="ok"
   else
     PHASE_APT_FALLBACK="skipped"

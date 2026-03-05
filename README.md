@@ -50,21 +50,18 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 ├── inventory/
 │   └── default.yaml
 ├── packages/
-│   ├── manifest.json
-│   ├── brew-packages.txt
-│   └── apt-minimal.txt
+│   └── packages.yaml
 ├── scripts/
 │   ├── lib/brew-env.sh
-│   ├── check-no-root-config-duplicates.sh
-│   ├── generate-package-manifests.sh
 │   ├── setup-pyenv.sh
 │   ├── setup-starship.sh
-│   ├── post-install-checks.sh
+│   └── post-install-checks.sh
+├── test/
+│   ├── check-no-root-config-duplicates.sh
 │   ├── test-backup-collision.sh
 │   ├── test-installer-idempotency.sh
 │   ├── test-skel-merge-behavior.sh
-│   └── verify-release-reproducible.sh
-├── tests/
+│   ├── verify-release-reproducible.sh
 │   └── installer.bats
 └── skel/
     └── default/
@@ -111,20 +108,16 @@ tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
 Verify deterministic archive output:
 
 ```bash
-./scripts/verify-release-reproducible.sh "$TAG"
+./test/verify-release-reproducible.sh "$TAG"
 ```
 
-## 🧰 Package manifest workflow
+> On macOS, install GNU tar first for deterministic-archive verification:
+> `brew install gnu-tar`
 
-`packages/manifest.json` is the source of truth for package lists.
+## 🧰 Package inventory workflow
 
-```bash
-# regenerate packages/brew-packages.txt and packages/apt-minimal.txt
-./scripts/generate-package-manifests.sh
-
-# verify generated files are current (used by CI)
-./scripts/generate-package-manifests.sh --check
-```
+`packages/packages.yaml` is the single source of truth for package lists
+(`brew` and `apt_minimal` sections).
 
 ## 🧠 Migration notes
 
@@ -136,13 +129,12 @@ GitHub Actions runs a CI workflow that checks:
 
 - shell syntax (`bash -n`)
 - shellcheck linting
-- generated package manifest consistency
 - no duplicate repo-root shell config files
 - installer/bootstrap help output
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
-- BATS installer suite (`tests/installer.bats`)
+- BATS installer suite (`test/installer.bats`)
 
 ## 📝 Changelog
 

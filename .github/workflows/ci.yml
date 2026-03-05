@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set script permissions
-        run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+        run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
 
       - name: Install shellcheck (Linux)
         if: runner.os == 'Linux'
@@ -28,16 +28,13 @@ jobs:
         run: brew install shellcheck bats-core
 
       - name: Shell syntax checks
-        run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+        run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
 
       - name: Shellcheck lint
-        run: shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
-
-      - name: Enforce generated package manifests
-        run: ./scripts/generate-package-manifests.sh --check
+        run: shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
 
       - name: Enforce no repo-root config duplicates
-        run: ./scripts/check-no-root-config-duplicates.sh
+        run: ./test/check-no-root-config-duplicates.sh
 
       - name: Help smoke tests
         run: |
@@ -48,13 +45,13 @@ jobs:
         run: ./install.sh --dry-run --no-apt --brew-only --yes --verbose >/dev/null
 
       - name: Idempotency test
-        run: ./scripts/test-installer-idempotency.sh
+        run: ./test/test-installer-idempotency.sh
 
       - name: Backup collision test
-        run: ./scripts/test-backup-collision.sh
+        run: ./test/test-backup-collision.sh
 
       - name: Skel merge behavior test
-        run: ./scripts/test-skel-merge-behavior.sh
+        run: ./test/test-skel-merge-behavior.sh
 
       - name: BATS installer suite
-        run: bats tests/installer.bats
+        run: bats test/installer.bats

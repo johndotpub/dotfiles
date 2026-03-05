@@ -7,6 +7,30 @@ REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TAG="${1:-v0.0.0-test}"
 REPO_NAME="$(basename "$REPO_DIR")"
 
+tar_bin="tar"
+if command -v gtar >/dev/null 2>&1; then
+  tar_bin="gtar"
+fi
+
+if ! "$tar_bin" --version 2>/dev/null | awk 'NR==1 {print $0}' | awk '/GNU tar/{found=1} END{exit(found?0:1)}'; then
+  echo "GNU tar is required for deterministic archive verification." >&2
+  echo "Install gnu-tar (macOS: brew install gnu-tar) and retry." >&2
+  exit 1
+fi
+
+sha256_cmd() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+    return 0
+  fi
+  echo "No SHA256 tool found (need sha256sum or shasum)." >&2
+  return 1
+}
+
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -15,7 +39,7 @@ archive_b="${tmp_dir}/${REPO_NAME}-${TAG}.b.tar.gz"
 
 create_archive() {
   local out_file="$1"
-  tar \
+  "$tar_bin" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
     --owner=0 \
@@ -30,8 +54,8 @@ create_archive() {
 create_archive "$archive_a"
 create_archive "$archive_b"
 
-sum_a="$(sha256sum "$archive_a" | awk '{print $1}')"
-sum_b="$(sha256sum "$archive_b" | awk '{print $1}')"
+sum_a="$(sha256_cmd "$archive_a")"
+sum_b="$(sha256_cmd "$archive_b")"
 
 if [[ "$sum_a" != "$sum_b" ]]; then
   echo "Release tarball reproducibility check failed." >&2

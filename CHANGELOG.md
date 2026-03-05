@@ -25,27 +25,24 @@ All notable changes to this project are documented here.
 - 🤖 Optional inference tools behind explicit flag:
   - `--install-inference` installs **ollama** and **llmfit** via curl scripts.
   - Default behavior remains off (`install_inference: false`).
-- 📦 Expanded package manifests and source of truth:
-  - Canonical manifest: `packages/manifest.json`
-  - Generator/checker: `scripts/generate-package-manifests.sh`
-  - Brew: includes `curl`, `git`, `ca-certificates`, `ripgrep`, `btop`, `bandwhich`, `dust` (plus core tools)
-  - Apt fallback: includes `iftop` and `iotop`
+- 📦 Single-source package inventory in `packages/packages.yaml`:
+  - Brew list includes `curl`, `git`, `ca-certificates`, `ripgrep`, `btop`, `bandwhich`, `dust` (plus core tools)
+  - Apt fallback list includes `iftop` and `iotop`
 - 🌐 Safer remote wrapper for optional installer scripts (download-then-execute with retry).
 - ✅ CI quality gates and tests:
   - `bash -n` syntax checks
   - `shellcheck -x` linting
-  - package-manifest consistency checks
   - no duplicate repo-root shell config checks
   - installer/bootstrap help smoke tests
   - dry-run smoke test
   - idempotency integration test (including `--override` backup assertions)
   - backup collision test (`.bak.<date>[.<n>]`)
   - skel merge behavior test (preserve existing + copy missing)
-  - BATS test suite (`tests/installer.bats`)
+  - BATS test suite (`test/installer.bats`)
   - CI matrix on Ubuntu + macOS
 - ♻️ Release reproducibility checks:
   - deterministic tarball creation (`--sort=name`, normalized mtime/owner/group)
-  - `scripts/verify-release-reproducible.sh`
+  - `test/verify-release-reproducible.sh`
 - 🤖 Repo guidance and collaboration templates:
   - `.github/copilot-instructions.md`
   - `.github/pull_request_template.md`
@@ -60,6 +57,7 @@ All notable changes to this project are documented here.
   - portable argument parsing (no GNU `getopt` dependency)
   - cross-platform file copy/merge behavior for Linux, WSL Ubuntu, and macOS
   - explicit merge fallback logic (replacing `cp -n` fallback behavior)
+- 🔐 Bootstrap checksum verification now relies on native SHA256 tools (`sha256sum`/`shasum`) without Python fallback.
 - 🧰 Canonical shell config ownership consolidated under `skel/default/` (DRY, zsh-first).
 - 📜 License standardized to canonical `UNLICENSE`.
 - 🗂️ Release notes source changed from `RELEASES.md` to `CHANGELOG.md`.
