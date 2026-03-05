@@ -43,6 +43,7 @@ archive_b="${tmp_dir}/${REPO_NAME}-${TAG}.b.tar.gz"
 create_archive() {
   local out_file="$1"
   # Normalized metadata makes tar output reproducible across runs.
+  # gzip -n removes variable filename/timestamp data from the gzip header.
   "$tar_bin" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
@@ -51,8 +52,8 @@ create_archive() {
     --numeric-owner \
     --exclude='.git' \
     --exclude='./dist' \
-    -czf "$out_file" \
-    -C "$REPO_DIR" .
+    -cf - \
+    -C "$REPO_DIR" . | gzip -n > "$out_file"
 }
 
 create_archive "$archive_a"

@@ -59,7 +59,9 @@ All notable changes to this project are documented here.
   - portable argument parsing (no GNU `getopt` dependency)
   - cross-platform file copy/merge behavior for Linux, WSL Ubuntu, and macOS
   - explicit merge fallback logic (replacing `cp -n` fallback behavior)
+  - JSON report escaping now handles additional control characters safely
 - 🔐 Bootstrap checksum verification now relies on native SHA256 tools (`sha256sum`/`shasum`) without Python fallback.
+- 📦 Release/reproducibility tarballs now use deterministic gzip headers (`gzip -n`) in CI and verification checks.
 - 🧰 Canonical shell config ownership consolidated under `skel/default/` (DRY, zsh-first).
 - 📜 License standardized to canonical `UNLICENSE`.
 - 🗂️ Release notes source changed from `RELEASES.md` to `CHANGELOG.md`.

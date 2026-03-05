@@ -11,7 +11,11 @@ setup_brew_env
 
 # Keep this script intentionally small: install tooling only.
 # Shell initialization is handled by skel/default/.zshrc.
-brew install pyenv pyenv-virtualenv || true
+had_errors=0
+if ! brew install pyenv pyenv-virtualenv; then
+  echo "Warning: brew failed to install/upgrade pyenv tooling." >&2
+  had_errors=1
+fi
 
 # Install zsh plugin only when Oh My Zsh is present.
 # This keeps non-OMZ shells untouched.
@@ -20,6 +24,13 @@ if [[ -d "${HOME}/.oh-my-zsh" ]]; then
   plugin_dir="${zsh_custom}/plugins/zsh-pyenv"
   mkdir -p "${zsh_custom}/plugins"
   if [[ ! -d "$plugin_dir" ]]; then
-    git clone --depth 1 https://github.com/mattberther/zsh-pyenv.git "$plugin_dir" || true
+    if ! git clone --depth 1 https://github.com/mattberther/zsh-pyenv.git "$plugin_dir"; then
+      echo "Warning: failed to install zsh-pyenv plugin at ${plugin_dir}." >&2
+      had_errors=1
+    fi
   fi
+fi
+
+if [[ "$had_errors" -ne 0 ]]; then
+  exit 1
 fi

@@ -10,7 +10,11 @@ source "${SCRIPT_DIR}/lib/brew-env.sh"
 setup_brew_env
 
 # Install/upgrade starship through brew.
-brew install starship || true
+had_errors=0
+if ! brew install starship; then
+  echo "Warning: brew failed to install/upgrade starship." >&2
+  had_errors=1
+fi
 
 # Resolve config locations once so behavior is consistent.
 mkdir -p "${HOME}/.config"
@@ -32,4 +36,9 @@ elif [[ -f "$FALLBACK" ]]; then
   echo "Configured fallback tokyo-night starship.toml"
 else
   echo "Could not configure starship preset automatically."
+  had_errors=1
+fi
+
+if [[ "$had_errors" -ne 0 ]]; then
+  exit 1
 fi
