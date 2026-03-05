@@ -23,6 +23,21 @@ VERBOSE=0
 HOST=""
 TAG=""
 FROM_RELEASE=0
+REPORT_JSON=""
+NO_LOCK=0
+
+LOCK_DIR=""
+LOCK_HELD=0
+
+PHASE_LOCK="pending"
+PHASE_PREFLIGHT="pending"
+PHASE_APT_BASELINE="pending"
+PHASE_BREW_BOOTSTRAP="pending"
+PHASE_BREW_PACKAGES="pending"
+PHASE_APT_FALLBACK="pending"
+PHASE_INFERENCE="pending"
+PHASE_CONFIG="pending"
+PHASE_CHECKS="pending"
 
 # Track whether the user explicitly set values so inventory can provide defaults.
 CLI_SET_PYVER=0
@@ -35,7 +50,13 @@ PKG_DIR="${REPO_DIR}/packages"
 INVENTORY_DIR="${REPO_DIR}/inventory"
 SKEL_PROFILE="default"
 
-timestamp() { date +%Y%m%d%H%M%S; }
+timestamp() {
+  if [[ -n "${DOTFILES_TEST_TIMESTAMP:-}" ]]; then
+    printf '%s\n' "$DOTFILES_TEST_TIMESTAMP"
+  else
+    date +%Y%m%d%H%M%S
+  fi
+}
 
 next_backup_path() {
   local base="$1"
@@ -111,6 +132,8 @@ Options:
       --host <host>          Optional inventory overlay: inventory/hosts/<host>.yaml
       --tag <tag>            Release tag (informational)
       --from-release         Informational flag set by bootstrap
+      --report-json <path>   Write final install report JSON to path
+      --no-lock              Disable installer lock (advanced/debug)
       --skel-dir <path>      Use alternate skel directory
       --packages-dir <path>  Use alternate packages directory
       --inventory-dir <path> Use alternate inventory directory
@@ -182,6 +205,15 @@ while [[ $# -gt 0 ]]; do
       FROM_RELEASE=1
       shift
       ;;
+    --report-json)
+      [[ $# -ge 2 ]] || { err "--report-json requires a value"; exit 1; }
+      REPORT_JSON="$2"
+      shift 2
+      ;;
+    --no-lock)
+      NO_LOCK=1
+      shift
+      ;;
     --skel-dir)
       [[ $# -ge 2 ]] || { err "--skel-dir requires a value"; exit 1; }
       SKEL_DIR="$2"
@@ -228,6 +260,170 @@ run_root() {
   else
     run "$@"
   fi
+}
+
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  printf '%s' "$s"
+}
+
+write_install_report() {
+  local exit_code="$1"
+  local final_status="error"
+  if [[ "$exit_code" -eq 0 ]]; then
+    final_status="success"
+  fi
+
+  info "📋 Install phase summary: lock=${PHASE_LOCK}, preflight=${PHASE_PREFLIGHT}, apt_baseline=${PHASE_APT_BASELINE}, brew_bootstrap=${PHASE_BREW_BOOTSTRAP}, brew_packages=${PHASE_BREW_PACKAGES}, apt_fallback=${PHASE_APT_FALLBACK}, inference=${PHASE_INFERENCE}, config=${PHASE_CONFIG}, checks=${PHASE_CHECKS}"
+
+  if [[ -z "$REPORT_JSON" ]]; then
+    return 0
+  fi
+
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: would write install report to %s\n' "$REPORT_JSON"
+    return 0
+  fi
+
+  run mkdir -p "$(dirname "$REPORT_JSON")"
+  cat > "$REPORT_JSON" <<EOF
+{
+  "status": "$(json_escape "$final_status")",
+  "exit_code": ${exit_code},
+  "tag": "$(json_escape "${TAG:-}")",
+  "host": "$(json_escape "${HOST:-}")",
+  "from_release": ${FROM_RELEASE},
+  "dry_run": ${DRY_RUN},
+  "override": ${OVERRIDE},
+  "phase": {
+    "lock": "$(json_escape "$PHASE_LOCK")",
+    "preflight": "$(json_escape "$PHASE_PREFLIGHT")",
+    "apt_baseline": "$(json_escape "$PHASE_APT_BASELINE")",
+    "brew_bootstrap": "$(json_escape "$PHASE_BREW_BOOTSTRAP")",
+    "brew_packages": "$(json_escape "$PHASE_BREW_PACKAGES")",
+    "apt_fallback": "$(json_escape "$PHASE_APT_FALLBACK")",
+    "inference": "$(json_escape "$PHASE_INFERENCE")",
+    "config": "$(json_escape "$PHASE_CONFIG")",
+    "checks": "$(json_escape "$PHASE_CHECKS")"
+  }
+}
+EOF
+  ok "Wrote install report: ${REPORT_JSON}"
+}
+
+acquire_install_lock() {
+  if [[ "$NO_LOCK" -eq 1 ]]; then
+    info "🔓 Installer lock disabled (--no-lock)."
+    PHASE_LOCK="disabled"
+    return 0
+  fi
+
+  LOCK_DIR="${XDG_RUNTIME_DIR:-/tmp}/dotfiles-install.${UID}.lock"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_HELD=1
+    printf '%s\n' "$$" > "${LOCK_DIR}/pid"
+    PHASE_LOCK="ok"
+    return 0
+  fi
+
+  local holder_pid=""
+  if [[ -f "${LOCK_DIR}/pid" ]]; then
+    holder_pid="$(awk 'NR==1 {print $1}' "${LOCK_DIR}/pid" 2>/dev/null || true)"
+  fi
+
+  if [[ -n "$holder_pid" ]] && kill -0 "$holder_pid" 2>/dev/null; then
+    PHASE_LOCK="blocked"
+    err "Another installer process is already running (pid ${holder_pid})."
+    err "Wait for it to finish, or use --no-lock only if you know installs won't overlap."
+    exit 1
+  fi
+
+  warn "Recovered stale installer lock at ${LOCK_DIR}."
+  rm -rf "$LOCK_DIR"
+  if mkdir "$LOCK_DIR" 2>/dev/null; then
+    LOCK_HELD=1
+    printf '%s\n' "$$" > "${LOCK_DIR}/pid"
+    PHASE_LOCK="ok"
+    return 0
+  fi
+
+  PHASE_LOCK="error"
+  err "Could not acquire installer lock: ${LOCK_DIR}"
+  exit 1
+}
+
+release_install_lock() {
+  if [[ "$LOCK_HELD" -eq 1 && -n "$LOCK_DIR" && -d "$LOCK_DIR" ]]; then
+    rm -rf "$LOCK_DIR"
+  fi
+}
+
+run_preflight_checks() {
+  PHASE_PREFLIGHT="in_progress"
+  info "🧪 Running preflight checks..."
+
+  local missing=0
+  local required_tools=(bash awk cp mv tar)
+  local tool=""
+  for tool in "${required_tools[@]}"; do
+    if command -v "$tool" >/dev/null 2>&1; then
+      debug "preflight: ${tool}=ok"
+    else
+      err "Missing required tool: ${tool}"
+      missing=1
+    fi
+  done
+
+  if command -v curl >/dev/null 2>&1; then
+    debug "preflight: curl=ok"
+  else
+    warn "curl not found yet (installer will attempt apt fallback where allowed)."
+  fi
+
+  if command -v brew >/dev/null 2>&1 || [[ -x "/opt/homebrew/bin/brew" || -x "/usr/local/bin/brew" ]]; then
+    debug "preflight: brew probe=ok"
+  else
+    warn "Homebrew not found yet (installer will bootstrap it)."
+  fi
+
+  if [[ "$missing" -eq 1 ]]; then
+    PHASE_PREFLIGHT="error"
+    err "Preflight checks failed."
+    exit 1
+  fi
+
+  PHASE_PREFLIGHT="ok"
+}
+
+run_remote_install_script() {
+  local name="$1"
+  local url="$2"
+  local tmp_script=""
+
+  info "🌐 Installing ${name} via upstream installer script..."
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: curl -fsSL --retry 3 --connect-timeout 15 %q | bash\n' "$url"
+    return 0
+  fi
+
+  tmp_script="$(mktemp)"
+  if ! curl -fsSL --retry 3 --connect-timeout 15 "$url" -o "$tmp_script"; then
+    warn "Failed to download installer script for ${name}: ${url}"
+    rm -f "$tmp_script"
+    return 1
+  fi
+
+  if ! bash "$tmp_script"; then
+    warn "Installer script failed for ${name}."
+    rm -f "$tmp_script"
+    return 1
+  fi
+
+  rm -f "$tmp_script"
+  ok "Finished ${name} installation script."
 }
 
 confirm_or_die() {
@@ -317,7 +513,17 @@ merge_dir_without_overwrite() {
   if command -v rsync >/dev/null 2>&1; then
     run rsync -a --ignore-existing "${src}/" "${dest}/"
   else
-    run cp -R -n "${src}/." "${dest}/"
+    local item rel target
+    run mkdir -p "$dest"
+    while IFS= read -r -d '' item; do
+      rel="${item#"${src}"/}"
+      target="${dest}/${rel}"
+      if [[ -e "$target" || -L "$target" ]]; then
+        continue
+      fi
+      run mkdir -p "$(dirname "$target")"
+      run cp -Rp "$item" "$target"
+    done < <(find "$src" -mindepth 1 -print0)
   fi
 }
 
@@ -593,7 +799,17 @@ print_checks() {
   fi
 }
 
+on_exit() {
+  local exit_code="$?"
+  write_install_report "$exit_code" || true
+  release_install_lock || true
+}
+
+trap on_exit EXIT
+
 info "🚀 Starting dotfiles install..."
+acquire_install_lock
+run_preflight_checks
 # Inventory precedence: defaults first, optional host overlay second.
 apply_inventory_file "${INVENTORY_DIR}/default.yaml"
 if [[ -n "$HOST" ]]; then
@@ -612,6 +828,7 @@ debug "effective_skel_profile=${SKEL_PROFILE}"
 
 # Optional apt path for Linux hosts. Disabled in brew-only or no-apt modes.
 if [[ "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
+  PHASE_APT_BASELINE="in_progress"
   install_apt_baseline
   if command -v locale-gen >/dev/null 2>&1; then
     run_root locale-gen en_US.UTF-8 || true
@@ -619,30 +836,48 @@ if [[ "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
   if command -v update-locale >/dev/null 2>&1; then
     run_root update-locale LANG=en_US.UTF-8 || true
   fi
+  PHASE_APT_BASELINE="ok"
 else
   debug "Skipping apt baseline installs"
+  PHASE_APT_BASELINE="skipped"
 fi
 
+PHASE_BREW_BOOTSTRAP="in_progress"
 install_brew_if_missing
+PHASE_BREW_BOOTSTRAP="ok"
 
 # Install package manifests.
 BREW_PKGS_FILE="${PKG_DIR}/brew-packages.txt"
 if [[ -f "$BREW_PKGS_FILE" ]]; then
+  PHASE_BREW_PACKAGES="in_progress"
   install_brew_from_file "$BREW_PKGS_FILE"
+  PHASE_BREW_PACKAGES="ok"
+else
+  PHASE_BREW_PACKAGES="skipped"
 fi
 
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
   APT_FALLBACK_FILE="${PKG_DIR}/apt-minimal.txt"
   if [[ -f "$APT_FALLBACK_FILE" ]]; then
+    PHASE_APT_FALLBACK="in_progress"
     install_apt_from_file "$APT_FALLBACK_FILE" || true
+    PHASE_APT_FALLBACK="ok"
+  else
+    PHASE_APT_FALLBACK="skipped"
   fi
+else
+  PHASE_APT_FALLBACK="skipped"
 fi
 
 # Inference tools are explicitly opt-in.
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
+  PHASE_INFERENCE="in_progress"
   info "🤖 Installing optional inference tools..."
-  run_pipe "curl -fsSL https://ollama.ai/install.sh | sh || true"
-  run_pipe "curl -fsSL https://llmfit.axjns.dev/install.sh | sh || true"
+  run_remote_install_script "ollama" "https://ollama.ai/install.sh" || true
+  run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh" || true
+  PHASE_INFERENCE="ok"
+else
+  PHASE_INFERENCE="skipped"
 fi
 
 # We intentionally do not install/compile pyenv Python versions here.
@@ -657,6 +892,7 @@ fi
 # Apply user config and optional editor/prompt enhancements.
 # Configure starship before skel deploy so fresh installs can use the
 # official preset command path; skel merge then preserves existing config.
+PHASE_CONFIG="in_progress"
 configure_starship_prompt
 deploy_skel_profile "$SKEL_PROFILE"
 configure_nano_syntax
@@ -695,6 +931,9 @@ if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
     run chsh -s "$(command -v zsh)" || true
   fi
 fi
+PHASE_CONFIG="ok"
 
+PHASE_CHECKS="in_progress"
 print_checks
+PHASE_CHECKS="ok"
 ok "Install script finished."

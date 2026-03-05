@@ -20,22 +20,37 @@ jobs:
       - name: Install shellcheck
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
+          sudo apt-get install -y shellcheck bats
 
       - name: Run release validation tests
         run: |
           bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
           shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+          ./scripts/generate-package-manifests.sh --check
+          ./scripts/check-no-root-config-duplicates.sh
           ./install.sh --help >/dev/null
           ./bootstrap.sh --help >/dev/null
           ./scripts/test-installer-idempotency.sh
+          ./scripts/test-backup-collision.sh
+          ./scripts/test-skel-merge-behavior.sh
+          bats tests/installer.bats
+          ./scripts/verify-release-reproducible.sh "${GITHUB_REF_NAME}"
 
       - name: Create tarball + checksum
         run: |
           TAG="${GITHUB_REF_NAME}"
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           mkdir -p dist
-          tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
+          tar \
+            --sort=name \
+            --mtime='UTC 1970-01-01' \
+            --owner=0 \
+            --group=0 \
+            --numeric-owner \
+            -czf "dist/${REPO_NAME}-${TAG}.tar.gz" \
+            --exclude='.git' \
+            --exclude='./dist' \
+            .
           (
             cd dist
             sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256"
