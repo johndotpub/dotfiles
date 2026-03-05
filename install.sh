@@ -277,7 +277,7 @@ backup_path() {
   if [[ -e "$path" || -L "$path" ]]; then
     local bak
     bak="${path}.bak.$(timestamp)"
-    run mv -- "$path" "$bak"
+    run mv "$path" "$bak"
     debug "Backed up ${path} -> ${bak}"
   fi
 }
@@ -337,6 +337,17 @@ install_brew_if_missing() {
   if ensure_brew_shellenv; then
     ok "Homebrew is available."
     return 0
+  fi
+  if ! command -v curl >/dev/null 2>&1; then
+    if command -v apt-get >/dev/null 2>&1 && [[ "$NO_APT" -eq 0 ]] && [[ "$BREW_ONLY" -eq 0 ]]; then
+      info "curl not found; installing via apt-get for Homebrew bootstrap..."
+      run_root env DEBIAN_FRONTEND=noninteractive apt-get update -y
+      run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends curl ca-certificates
+    else
+      err "curl is required to install Homebrew but is not available."
+      err "Install curl manually, or re-run without --no-apt/--brew-only so it can be installed automatically."
+      exit 1
+    fi
   fi
   info "🍺 Installing Homebrew..."
   run_pipe "NONINTERACTIVE=1 /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
@@ -620,11 +631,14 @@ if command -v pyenv >/dev/null 2>&1; then
 fi
 
 # Apply user config and optional editor/prompt enhancements.
-deploy_skel_profile "$SKEL_PROFILE"
+# Configure starship before skel deploy so fresh installs can use the
+# official preset command path; skel merge then preserves existing config.
 configure_starship_prompt
+deploy_skel_profile "$SKEL_PROFILE"
 configure_nano_syntax
 
-# ~/.python-version is only created/changed when explicitly enabled.
+# ~/.python-version is managed only when CREATE_HOME_PYVER is enabled
+# (via flags or inventory).
 if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   pyver_file="${HOME}/.python-version"
   if [[ -f "$pyver_file" && "$OVERRIDE" -eq 0 ]]; then
