@@ -317,11 +317,7 @@ merge_dir_without_overwrite() {
   if command -v rsync >/dev/null 2>&1; then
     run rsync -a --ignore-existing "${src}/" "${dest}/"
   else
-    if cp --help 2>/dev/null | grep -q -- '--update'; then
-      run cp -R --update=none "${src}/." "${dest}/"
-    else
-      run cp -R -n "${src}/." "${dest}/"
-    fi
+    run cp -R -n "${src}/." "${dest}/"
   fi
 }
 
@@ -705,10 +701,14 @@ fi
 
 # Offer shell switch only when current shell is not zsh.
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
-  if [[ "$ASSUME_YES" -eq 0 ]]; then
-    confirm_or_die "Change default shell to zsh?"
+  if [[ ! -t 0 ]]; then
+    info "Non-interactive shell detected; skipping automatic 'chsh -s zsh'. Run it manually if desired."
+  else
+    if [[ "$ASSUME_YES" -eq 0 ]]; then
+      confirm_or_die "Change default shell to zsh?"
+    fi
+    run chsh -s "$(command -v zsh)" || true
   fi
-  run chsh -s "$(command -v zsh)" || true
 fi
 
 print_checks
