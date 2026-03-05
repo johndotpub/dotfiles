@@ -641,13 +641,16 @@ fi
 # uv is useful for modern Python tooling workflows.
 if ! command -v uv >/dev/null 2>&1; then
   info "🐍 Installing uv..."
-  if command -v brew >/dev/null 2>&1; then
-    if ! run brew install uv; then
-      warn "brew install uv failed; falling back to upstream installer script."
-      run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  if ! command -v brew >/dev/null 2>&1; then
+    if [[ "$DRY_RUN" -eq 1 ]]; then
+      printf '🧪 DRY: brew install uv\n'
+    else
+      err "Homebrew is required to install uv in this brew-first installer."
+      exit 1
     fi
-  else
-    run_pipe "curl -LsSf https://astral.sh/uv/install.sh | sh"
+  elif ! run brew install uv; then
+    err "brew install uv failed. Fix brew issues and re-run installer."
+    exit 1
   fi
 else
   ok "uv is available."
