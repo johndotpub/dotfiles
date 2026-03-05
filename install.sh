@@ -783,6 +783,7 @@ configure_oh_my_tmux() {
   fi
 
   if [[ -e "$tmux_conf" || -L "$tmux_conf" ]]; then
+    # Respect preserve-by-default policy for users with existing tmux config.
     if [[ "$OVERRIDE" -eq 1 ]]; then
       backup_path "$tmux_conf"
       run ln -s "$tmux_main_conf" "$tmux_conf"
@@ -793,6 +794,7 @@ configure_oh_my_tmux() {
     return 0
   fi
 
+  # Fresh installs receive the oh-my-tmux primary config symlink automatically.
   run ln -s "$tmux_main_conf" "$tmux_conf"
   ok "Linked ${tmux_conf} -> ${tmux_main_conf}"
 }

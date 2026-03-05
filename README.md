@@ -61,7 +61,9 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── check-no-root-config-duplicates.sh
 │   ├── lib/test-shims.sh
 │   ├── test-backup-collision.sh
+│   ├── test-install-lock.sh
 │   ├── test-installer-idempotency.sh
+│   ├── test-oh-my-tmux.sh
 │   ├── test-report-json.sh
 │   ├── test-skel-merge-behavior.sh
 │   ├── verify-release-reproducible.sh
@@ -147,6 +149,8 @@ GitHub Actions runs a CI workflow that checks:
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
+- oh-my-tmux bootstrap/preserve/override behavior (`test/test-oh-my-tmux.sh`)
+- installer lock contention behavior (`test/test-install-lock.sh`)
 - report JSON validity/escaping checks (`test/test-report-json.sh`)
 - BATS installer suite (`test/installer.bats`)
 - release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
