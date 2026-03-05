@@ -2,6 +2,7 @@ zsh
 nano
 ca-certificates
 starship
+uv
 pyenv
 pyenv-virtualenv
 git
