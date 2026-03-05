@@ -94,6 +94,7 @@ fi
 
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
 ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
 TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"

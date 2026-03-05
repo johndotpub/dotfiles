@@ -12,3 +12,12 @@ setup_brew_env
 # Keep this script intentionally small: install tooling only.
 # Shell initialization is handled by skel/default/.zshrc.
 brew install pyenv pyenv-virtualenv || true
+
+if [[ -d "${HOME}/.oh-my-zsh" ]]; then
+  zsh_custom="${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"
+  plugin_dir="${zsh_custom}/plugins/zsh-pyenv"
+  mkdir -p "${zsh_custom}/plugins"
+  if [[ ! -d "$plugin_dir" ]]; then
+    git clone --depth 1 https://github.com/mattberther/zsh-pyenv.git "$plugin_dir" || true
+  fi
+fi

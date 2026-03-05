@@ -17,7 +17,12 @@ HISTSIZE=-1
 HISTFILESIZE=-1
 HISTCONTROL=ignoreboth
 
-plugins=(git zsh-pyenv)
+plugins=(git)
+if [[ -d "$ZSH/custom/plugins/zsh-pyenv" || -d "$ZSH/plugins/zsh-pyenv" ]]; then
+  plugins+=(zsh-pyenv)
+elif [[ -d "$ZSH/plugins/pyenv" ]]; then
+  plugins+=(pyenv)
+fi
 if [[ -d "$ZSH" ]]; then
   source "$ZSH/oh-my-zsh.sh"
 fi

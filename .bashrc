@@ -6,6 +6,8 @@ case $- in
   *) return ;;
 esac
 
-if [ -f /etc/bashrc ]; then
+if [ -f /etc/bash.bashrc ]; then
+  . /etc/bash.bashrc
+elif [ -f /etc/bashrc ]; then
   . /etc/bashrc
 fi

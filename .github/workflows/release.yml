@@ -35,7 +35,7 @@ jobs:
           TAG="${GITHUB_REF_NAME}"
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
           mkdir -p dist
-          tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
+          tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
           (
             cd dist
             sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256"
