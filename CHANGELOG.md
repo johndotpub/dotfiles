@@ -42,6 +42,8 @@ All notable changes to this project are documented here.
   - idempotency integration test (including `--override` backup assertions)
   - backup collision test (`.bak.<date>[.<n>]`)
   - skel merge behavior test (preserve existing + copy missing)
+  - oh-my-tmux behavior test (`test/test-oh-my-tmux.sh`)
+  - installer lock contention test (`test/test-install-lock.sh`)
   - report JSON validity/escaping test (`test/test-report-json.sh`)
   - BATS test suite (`test/installer.bats`)
   - test layout standardized under `test/`

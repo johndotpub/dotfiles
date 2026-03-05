@@ -53,6 +53,12 @@ jobs:
       - name: Skel merge behavior test
         run: ./test/test-skel-merge-behavior.sh
 
+      - name: oh-my-tmux behavior test
+        run: ./test/test-oh-my-tmux.sh
+
+      - name: Installer lock behavior test
+        run: ./test/test-install-lock.sh
+
       - name: Report JSON test
         run: ./test/test-report-json.sh
 
