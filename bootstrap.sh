@@ -78,6 +78,29 @@ verify_checksum() {
   echo "${artifact_file}: OK"
 }
 
+# Build candidate release asset names for this repo/tag.
+# Dot-prefixed repos need special handling because hidden filenames can be
+# rewritten by release upload tooling.
+build_asset_candidates() {
+  local tag="$1"
+  local repo_name normalized
+  repo_name="${REPO##*/}"
+  normalized="$repo_name"
+
+  while [[ "$normalized" == .* ]]; do
+    normalized="${normalized#.}"
+  done
+  if [[ -z "$normalized" ]]; then
+    normalized="repo"
+  fi
+
+  ASSET_CANDIDATES=("${normalized}-${tag}.tar.gz")
+  if [[ "$repo_name" == .* ]]; then
+    ASSET_CANDIDATES+=("default${repo_name}-${tag}.tar.gz")
+    ASSET_CANDIDATES+=("${repo_name}-${tag}.tar.gz")
+  fi
+}
+
 # Print usage and exit with optional code.
 usage() {
   local code="${1:-1}"
@@ -110,15 +133,35 @@ fi
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
-ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
+build_asset_candidates "$TAG"
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
-TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
-SHA_URL="${TARBALL_URL}.sha256"
-SHA_SIG_URL="${SHA_URL}.asc"
 
 cd "$TMPDIR"
 echo "📥 Downloading release tarball..."
-curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"
+ASSET_BASENAME=""
+TARBALL_URL=""
+for candidate in "${ASSET_CANDIDATES[@]}"; do
+  candidate_url="${RELEASE_BASE}/${candidate}"
+  if curl -fsSLo "${candidate}" -L "${candidate_url}"; then
+    ASSET_BASENAME="${candidate}"
+    TARBALL_URL="${candidate_url}"
+    break
+  fi
+  rm -f "${candidate}"
+done
+
+if [[ -z "${ASSET_BASENAME}" ]]; then
+  echo "❌ Unable to download release tarball for tag ${TAG}."
+  echo "Tried:"
+  for candidate in "${ASSET_CANDIDATES[@]}"; do
+    echo "  - ${RELEASE_BASE}/${candidate}"
+  done
+  exit 1
+fi
+
+SHA_URL="${TARBALL_URL}.sha256"
+SHA_SIG_URL="${SHA_URL}.asc"
+echo "📥 Downloaded: ${ASSET_BASENAME}"
 
 echo "📥 Downloading checksum..."
 curl -fsSLo "${ASSET_BASENAME}.sha256" -L "${SHA_URL}"

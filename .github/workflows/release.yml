@@ -14,6 +14,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Compute release asset basename
+        id: asset
+        run: |
+          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          while [[ "$REPO_NAME" == .* ]]; do
+            REPO_NAME="${REPO_NAME#.}"
+          done
+          if [[ -z "$REPO_NAME" ]]; then
+            REPO_NAME="repo"
+          fi
+          echo "asset_basename=${REPO_NAME}-${GITHUB_REF_NAME}.tar.gz" >> "$GITHUB_OUTPUT"
+
       - name: Set script permissions
         run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
 
@@ -32,8 +44,7 @@ jobs:
 
       - name: Create tarball + checksum
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          ASSET_BASENAME="${{ steps.asset.outputs.asset_basename }}"
           mkdir -p dist
           # Use `gzip -n` so gzip headers do not inject variable timestamps/names.
           tar \
@@ -45,10 +56,10 @@ jobs:
             --exclude='.git' \
             --exclude='./dist' \
             -cf - \
-            . | gzip -n > "dist/${REPO_NAME}-${TAG}.tar.gz"
+            . | gzip -n > "dist/${ASSET_BASENAME}"
           (
             cd dist
-            sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256"
+            sha256sum "${ASSET_BASENAME}" > "${ASSET_BASENAME}.sha256"
           )
 
       - name: Sign checksum (optional)
@@ -56,13 +67,12 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
-          REPO_NAME="${GITHUB_REPOSITORY##*/}"
+          ASSET_BASENAME="${{ steps.asset.outputs.asset_basename }}"
           if [ -n "${GPG_PRIVATE_KEY:-}" ]; then
             echo "$GPG_PRIVATE_KEY" | gpg --batch --import
             gpg --batch --yes --pinentry-mode loopback --passphrase "$GPG_PASSPHRASE" \
-              --output "dist/${REPO_NAME}-${TAG}.tar.gz.sha256.asc" \
-              --detach-sign "dist/${REPO_NAME}-${TAG}.tar.gz.sha256"
+              --output "dist/${ASSET_BASENAME}.sha256.asc" \
+              --detach-sign "dist/${ASSET_BASENAME}.sha256"
           fi
 
       - name: Publish release assets

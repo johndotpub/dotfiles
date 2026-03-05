@@ -61,3 +61,8 @@ setup() {
   run bash "${REPO_DIR}/test/test-nanorc-optional-failure.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "bootstrap release asset fallback script passes" {
+  run bash "${REPO_DIR}/test/test-bootstrap-release-asset-fallback.sh"
+  [ "$status" -eq 0 ]
+}
