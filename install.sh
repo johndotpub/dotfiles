@@ -665,7 +665,10 @@ install_apt_from_yaml() {
     return 0
   fi
   info "📦 Installing apt fallback packages..."
-  run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
+  if ! run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"; then
+    warn "apt fallback package installation failed for one or more packages."
+    return 1
+  fi
 }
 
 # Install brew package list from YAML section.

@@ -115,19 +115,19 @@ SHA_SIG_URL="${SHA_URL}.asc"
 
 cd "$TMPDIR"
 echo "📥 Downloading release tarball..."
-curl -fsSLo "${ASSET_BASENAME}" "${TARBALL_URL}"
+curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"
 
 echo "📥 Downloading checksum..."
-curl -fsSLo "${ASSET_BASENAME}.sha256" "${SHA_URL}"
+curl -fsSLo "${ASSET_BASENAME}.sha256" -L "${SHA_URL}"
 
 # Optional GPG verification for checksum file
 # If a detached signature is published for the checksum, verify it.
-if curl -fsSLo /dev/null "${SHA_SIG_URL}" 2>/dev/null; then
+if curl -fsSLo /dev/null -L "${SHA_SIG_URL}" 2>/dev/null; then
   if ! command -v gpg >/dev/null 2>&1; then
     echo "ℹ️ Skipping GPG verification: 'gpg' is not installed."
   else
     echo "🔐 Found checksum signature; verifying with gpg..."
-    curl -fsSLo "${ASSET_BASENAME}.sha256.asc" "${SHA_SIG_URL}"
+    curl -fsSLo "${ASSET_BASENAME}.sha256.asc" -L "${SHA_SIG_URL}"
     if ! gpg --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256"; then
       echo "❌ GPG verification failed; aborting."
       exit 2
