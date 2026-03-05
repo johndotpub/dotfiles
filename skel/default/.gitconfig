@@ -1,0 +1,6 @@
+[core]
+  editor = nano
+[alias]
+  st = status
+  co = checkout
+  br = branch

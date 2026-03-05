@@ -1,0 +1,5 @@
+profile: dev
+create_home_pyver: false
+pyver: "3.12.12"
+install_inference: false
+skel_profile: "default"

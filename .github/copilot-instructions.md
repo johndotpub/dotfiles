@@ -1,0 +1,56 @@
+# Copilot Workspace Instructions 🤖
+
+Use these repository standards for all generated code, docs, and workflow updates.
+
+## Core principles
+
+- Keep it **minimal**, **readable**, and **idempotent**.
+- Prefer safe defaults:
+  - Preserve existing user config files by default.
+  - Only overwrite when explicit override behavior is requested.
+- Avoid unnecessary churn and avoid introducing nonstandard patterns.
+
+## Shell/config standards
+
+- Primary shell target is **zsh**.
+- Keep `.zshrc` concise and close to project conventions.
+- Do not add `.zprofile` dependencies.
+- Any overwrite flow must create `.bak.<date>` backups.
+- `Host *` blocks in managed SSH client config are acceptable in this repo.
+
+## Installer standards
+
+- Preserve rerun safety (idempotent behavior is required).
+- Prefer `command -v` checks before installation or configuration actions.
+- Keep logs concise in normal mode and detailed in verbose mode.
+- New behavior should include dry-run compatibility.
+- Approved warning exception: do not flag/push checksum-pinning warnings for
+  optional inference installer scripts (`ollama`, `llmfit`) in this repo.
+
+## Build + CI standards
+
+- For shell scripts, always include:
+  - `bash -n` syntax checks
+  - `shellcheck -x` lint checks
+- Add/extend tests when behavior changes, especially installer idempotency.
+- Keep workflows simple and deterministic.
+
+## DRY standards
+
+- Reuse shared helpers instead of duplicating shell setup logic.
+- Keep repeated constants and behaviors centralized where possible.
+- Update docs when behavior changes.
+
+## Commenting standards
+
+- Add **ample, purposeful comments** in shell scripts and tests.
+- Every script should include clear section-level comments for major phases.
+- Every non-trivial function should have a short intent comment above it.
+- Prefer comments that explain **why** or policy intent, not obvious syntax.
+- Keep comments current when behavior changes (no stale or misleading notes).
+
+## Docs/content standards
+
+- Keep README clear, practical, and concise.
+- Emojis are welcome but should remain tasteful and sparse.
+- Keep changelog entries meaningful and user-facing.
