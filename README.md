@@ -95,7 +95,6 @@ tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
 
 ## 🧠 Migration notes
 
-- `.dot/bootstrap` references have been removed.
 - This repo is intentionally zsh-first and keeps Bash config minimal.
 - Existing files in `$HOME` are preserved by default; `--override` is opt-in.
 
