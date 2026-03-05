@@ -119,6 +119,14 @@ Verify deterministic archive output:
 `packages/packages.yaml` is the single source of truth for package lists
 (`brew` and `apt_minimal` sections).
 
+## 🤖 Agentic/Copilot standards
+
+Repository AI guidance lives in `.github/copilot-instructions.md` and includes:
+
+- DRY/minimal change expectations
+- Idempotency and safe-default requirements
+- Ample, purposeful section/function comments in shell scripts and tests
+
 ## 🧠 Migration notes
 
 - Existing files in `$HOME` are preserved by default; `--override` is opt-in.
@@ -135,6 +143,7 @@ GitHub Actions runs a CI workflow that checks:
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
 - BATS installer suite (`test/installer.bats`)
+- release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
 
 ## 📝 Changelog
 
