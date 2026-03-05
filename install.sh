@@ -344,6 +344,13 @@ EOF
 
 # Acquire a process lock so two installers do not mutate dotfiles concurrently.
 acquire_install_lock() {
+  # Dry-run must be side-effect free; skip lock file mutations.
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    info "🧪 DRY: skipping installer lock acquisition."
+    PHASE_LOCK="skipped"
+    return 0
+  fi
+
   if [[ "$NO_LOCK" -eq 1 ]]; then
     info "🔓 Installer lock disabled (--no-lock)."
     PHASE_LOCK="disabled"
@@ -434,6 +441,7 @@ run_remote_install_script() {
   local name="$1"
   local url="$2"
   local tmp_script=""
+  local script_hash=""
   local dry_tmp="/tmp/dotfiles-${name}-install.sh"
 
   info "🌐 Installing ${name} via upstream installer script..."
@@ -445,12 +453,30 @@ run_remote_install_script() {
     return 0
   fi
 
+  # Restrict helper usage to approved inference installer endpoints.
+  case "$url" in
+    https://ollama.ai/install.sh|https://llmfit.axjns.dev/install.sh) ;;
+    *)
+      warn "Blocked unapproved remote installer URL for ${name}: ${url}"
+      return 1
+      ;;
+  esac
+
   tmp_script="$(mktemp)"
   if ! curl -fsSL --retry 3 --connect-timeout 15 "$url" -o "$tmp_script"; then
     warn "Failed to download installer script for ${name}: ${url}"
     rm -f "$tmp_script"
     return 1
   fi
+
+  if ! script_hash="$(sha256sum "$tmp_script" 2>/dev/null | awk '{print $1}')"; then
+    if command -v shasum >/dev/null 2>&1; then
+      script_hash="$(shasum -a 256 "$tmp_script" | awk '{print $1}')"
+    else
+      script_hash="unavailable"
+    fi
+  fi
+  warn "${name} installer is unpinned by policy. downloaded_sha256=${script_hash}"
 
   if ! bash "$tmp_script"; then
     warn "Installer script failed for ${name}."
@@ -1024,6 +1050,7 @@ fi
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
   inference_failed=0
   run_inference=1
+  skipped_requires_yes=0
   PHASE_INFERENCE="in_progress"
   info "🤖 Installing optional inference tools..."
   warn "Inference installers are remote scripts from third-party domains."
@@ -1034,6 +1061,7 @@ if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
     if [[ ! -t 0 ]]; then
       warn "Non-interactive shell detected; skipping inference installers unless -y/--yes is provided."
       run_inference=0
+      skipped_requires_yes=1
     else
       confirm_or_die "Proceed with optional remote inference installers (ollama, llmfit)?"
     fi
@@ -1049,10 +1077,12 @@ if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
       inference_failed=1
     fi
   else
-    inference_failed=1
+    inference_failed=0
   fi
 
-  if [[ "$inference_failed" -eq 0 ]]; then
+  if [[ "$skipped_requires_yes" -eq 1 ]]; then
+    PHASE_INFERENCE="skipped"
+  elif [[ "$inference_failed" -eq 0 ]]; then
     PHASE_INFERENCE="ok"
   else
     PHASE_INFERENCE="warn"
