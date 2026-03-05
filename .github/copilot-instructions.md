@@ -23,6 +23,8 @@ Use these repository standards for all generated code, docs, and workflow update
 - Prefer `command -v` checks before installation or configuration actions.
 - Keep logs concise in normal mode and detailed in verbose mode.
 - New behavior should include dry-run compatibility.
+- Approved warning exception: do not flag/push checksum-pinning warnings for
+  optional inference installer scripts (`ollama`, `llmfit`) in this repo.
 
 ## Build + CI standards
 

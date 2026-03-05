@@ -67,6 +67,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── test-report-json.sh
 │   ├── test-skel-merge-behavior.sh
 │   ├── test-ssh-config-migration.sh
+│   ├── test-inference-opt-in.sh
 │   ├── verify-release-reproducible.sh
 │   └── installer.bats
 └── skel/
@@ -104,7 +105,6 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 ### 🔐 Security env knobs
 
 - `BOOTSTRAP_GPG_FINGERPRINT` to enforce expected checksum signer fingerprint in `bootstrap.sh`
-- `OLLAMA_SCRIPT_SHA256` / `LLMFIT_SCRIPT_SHA256` to override pinned inference installer checksums
 
 ## 📦 Build a release artifact manually
 
@@ -161,6 +161,7 @@ GitHub Actions runs a CI workflow that checks:
 - oh-my-tmux bootstrap/preserve/override behavior (`test/test-oh-my-tmux.sh`)
 - installer lock contention behavior (`test/test-install-lock.sh`)
 - report JSON validity/escaping checks (`test/test-report-json.sh`)
+- inference installer opt-in behavior (`test/test-inference-opt-in.sh`)
 - DRY BATS installer suite (`test/installer.bats`) running all integration checks
 - release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
 
