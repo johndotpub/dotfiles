@@ -50,6 +50,7 @@ All notable changes to this project are documented here.
     - oh-my-tmux behavior
     - installer lock contention
     - report JSON validity/escaping
+    - inference installer opt-in behavior
     - release reproducibility check
   - test layout standardized under `test/`
   - CI matrix on Ubuntu + macOS
@@ -76,7 +77,7 @@ All notable changes to this project are documented here.
 - 🔐 nanorc clone path now supports pinned commit installs via `NANORC_REF` (default pinned to a known-good ref).
 - 🔐 Bootstrap checksum verification now relies on native SHA256 tools (`sha256sum`/`shasum`) without Python fallback.
 - 🔐 Bootstrap GPG verification now supports optional signer pinning via `BOOTSTRAP_GPG_FINGERPRINT`.
-- 🔐 Optional inference installer scripts are checksum-pinned by default (override via `OLLAMA_SCRIPT_SHA256` / `LLMFIT_SCRIPT_SHA256`).
+- 🤖 Optional inference installer scripts (`ollama`, `llmfit`) intentionally remain unpinned by project policy due high-velocity upstream updates.
 - 📦 Release/reproducibility tarballs now use deterministic gzip headers (`gzip -n`) in CI and verification checks.
 - 🧰 Canonical shell config ownership consolidated under `skel/default/` (DRY, zsh-first).
 - 📜 License standardized to canonical `UNLICENSE`.

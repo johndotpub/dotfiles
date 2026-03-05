@@ -51,3 +51,8 @@ setup() {
   run bash "${REPO_DIR}/test/verify-release-reproducible.sh" "${RELEASE_TAG:-v0.0.0-test}"
   [ "$status" -eq 0 ]
 }
+
+@test "inference opt-in script passes" {
+  run bash "${REPO_DIR}/test/test-inference-opt-in.sh"
+  [ "$status" -eq 0 ]
+}
