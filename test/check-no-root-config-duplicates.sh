@@ -4,6 +4,8 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Enforce DRY ownership of shell dotfiles.
+# Canonical tracked copies must live under skel/default/.
 for path in ".zshrc" ".bashrc" ".bash_profile" ".profile"; do
   if [[ -e "${REPO_DIR}/${path}" || -L "${REPO_DIR}/${path}" ]]; then
     echo "Unexpected repo-root shell config: ${path}" >&2

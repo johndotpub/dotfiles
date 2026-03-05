@@ -12,6 +12,7 @@ setup_brew_env
 # Install/upgrade starship through brew.
 brew install starship || true
 
+# Resolve config locations once so behavior is consistent.
 mkdir -p "${HOME}/.config"
 TARGET="${HOME}/.config/starship.toml"
 FALLBACK="${SCRIPT_DIR}/../skel/default/.config/starship.toml"

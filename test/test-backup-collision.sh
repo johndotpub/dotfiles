@@ -5,10 +5,12 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+# Use isolated HOME/PATH and fake toolchain for deterministic tests.
 HOME_DIR="${TMP_DIR}/home"
 FAKE_BIN="${TMP_DIR}/bin"
 mkdir -p "$HOME_DIR" "$FAKE_BIN"
 
+# Minimal brew shim used by installer package/check paths.
 cat > "${FAKE_BIN}/brew" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -28,6 +30,7 @@ esac
 EOF
 chmod +x "${FAKE_BIN}/brew"
 
+# Starship shim to satisfy preset generation path.
 cat > "${FAKE_BIN}/starship" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -45,6 +48,7 @@ echo "starship 1.0.0-test"
 EOF
 chmod +x "${FAKE_BIN}/starship"
 
+# pyenv, git, and make shims cover optional installer code paths.
 cat > "${FAKE_BIN}/pyenv" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -76,6 +80,7 @@ exit 0
 EOF
 chmod +x "${FAKE_BIN}/make"
 
+# Seed files that will be overridden twice.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
 # original
 export ORIGINAL_ZSHRC=1
@@ -89,8 +94,10 @@ EOF
 export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
+# Freeze timestamp so backup collision suffixing is testable.
 export DOTFILES_TEST_TIMESTAMP="20990101010101"
 
+# Two override runs with identical timestamp must suffix backup names.
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag backup-test >/dev/null
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag backup-test >/dev/null
 

@@ -2,6 +2,7 @@
 
 # Shared helper used by setup scripts.
 # Loads Homebrew environment into current shell when brew exists in PATH.
+# Search order prefers current PATH first, then standard macOS brew prefixes.
 setup_brew_env() {
   local brew_bin=""
 

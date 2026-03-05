@@ -7,6 +7,7 @@ REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 TAG="${1:-v0.0.0-test}"
 REPO_NAME="$(basename "$REPO_DIR")"
 
+# Prefer gtar when installed (common on macOS via Homebrew).
 tar_bin="tar"
 if command -v gtar >/dev/null 2>&1; then
   tar_bin="gtar"
@@ -18,6 +19,7 @@ if ! "$tar_bin" --version 2>/dev/null | awk 'NR==1 {print $0}' | awk '/GNU tar/{
   exit 1
 fi
 
+# Portable SHA256 helper for Linux/macOS environments.
 sha256_cmd() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum "$1" | awk '{print $1}'
@@ -31,6 +33,7 @@ sha256_cmd() {
   return 1
 }
 
+# Compare two independent archive builds to catch non-determinism.
 tmp_dir="$(mktemp -d)"
 trap 'rm -rf "$tmp_dir"' EXIT
 
@@ -39,6 +42,7 @@ archive_b="${tmp_dir}/${REPO_NAME}-${TAG}.b.tar.gz"
 
 create_archive() {
   local out_file="$1"
+  # Normalized metadata makes tar output reproducible across runs.
   "$tar_bin" \
     --sort=name \
     --mtime='UTC 1970-01-01' \
@@ -54,6 +58,7 @@ create_archive() {
 create_archive "$archive_a"
 create_archive "$archive_b"
 
+# Hash comparison is the final reproducibility assertion.
 sum_a="$(sha256_cmd "$archive_a")"
 sum_b="$(sha256_cmd "$archive_b")"
 

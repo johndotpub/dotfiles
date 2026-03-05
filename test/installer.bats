@@ -1,5 +1,8 @@
 #!/usr/bin/env bats
 
+# BATS wrapper suite:
+# keeps CI output grouped while each underlying shell test
+# still owns its isolated fixture setup.
 setup() {
   REPO_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 }
