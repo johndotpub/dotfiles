@@ -7,6 +7,7 @@
 Clean, straightforward dotfiles setup for Linux/WSL:
 
 **Supported OS:** Ubuntu, Ubuntu (WSL), and macOS.
+**Focus:** A Homebrew-first, zsh-focused dotfiles toolkit.
 
 - 🍺 Brew-first package install
 - 🧾 Release verification (SHA256 + optional GPG on checksum)
@@ -95,7 +96,6 @@ tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
 
 ## 🧠 Migration notes
 
-- This repo is intentionally zsh-first and keeps Bash config minimal.
 - Existing files in `$HOME` are preserved by default; `--override` is opt-in.
 
 ## ✅ CI tests
