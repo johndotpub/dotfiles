@@ -13,6 +13,8 @@ setup_brew_env
 # Shell initialization is handled by skel/default/.zshrc.
 brew install pyenv pyenv-virtualenv || true
 
+# Install zsh plugin only when Oh My Zsh is present.
+# This keeps non-OMZ shells untouched.
 if [[ -d "${HOME}/.oh-my-zsh" ]]; then
   zsh_custom="${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"
   plugin_dir="${zsh_custom}/plugins/zsh-pyenv"

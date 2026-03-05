@@ -10,10 +10,12 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
+# Isolate HOME/PATH so tests never touch real user config.
 HOME_DIR="${TMP_DIR}/home"
 FAKE_BIN="${TMP_DIR}/bin"
 mkdir -p "$HOME_DIR" "$FAKE_BIN"
 
+# Shim external tools for deterministic, offline test behavior.
 cat > "${FAKE_BIN}/brew" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -40,6 +42,7 @@ esac
 EOF
 chmod +x "${FAKE_BIN}/brew"
 
+# Starship shim supports the exact preset command used by installer.
 cat > "${FAKE_BIN}/starship" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -61,6 +64,7 @@ echo "starship 1.0.0-test"
 EOF
 chmod +x "${FAKE_BIN}/starship"
 
+# pyenv shim keeps version probes predictable.
 cat > "${FAKE_BIN}/pyenv" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -79,6 +83,7 @@ esac
 EOF
 chmod +x "${FAKE_BIN}/pyenv"
 
+# git/make shims support nanorc clone + install path.
 cat > "${FAKE_BIN}/git" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -101,6 +106,7 @@ exit 0
 EOF
 chmod +x "${FAKE_BIN}/make"
 
+# Seed user-managed files that should be preserved by default.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
 # existing zshrc should be preserved
 export KEEP_ME=1
@@ -115,12 +121,14 @@ export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
+# First run: should preserve existing files and add missing config.
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ci-test >/dev/null
 
 grep -q "KEEP_ME=1" "${HOME_DIR}/.zshrc"
 grep -q "editor = vim" "${HOME_DIR}/.gitconfig"
 test -f "${HOME_DIR}/.config/starship.toml"
 
+# Second run: should remain idempotent without creating backups.
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ci-test >/dev/null
 
 grep -q "KEEP_ME=1" "${HOME_DIR}/.zshrc"
@@ -136,6 +144,7 @@ if compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
   exit 1
 fi
 
+# Override run: must create backups before replacing existing files.
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag ci-test >/dev/null
 
 if ! compgen -G "${HOME_DIR}/.zshrc.bak.*" >/dev/null; then

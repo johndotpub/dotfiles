@@ -18,6 +18,8 @@ HOST=""
 PYVER=""
 ASSUME_YES=0
 
+# Verify <artifact> against expected SHA256 listed in checksum file.
+# Supports GNU coreutils (`sha256sum -c`) and BSD/macOS (`shasum -a 256`).
 verify_checksum() {
   local checksum_file="$1"
   local artifact_file="$2"
@@ -59,7 +61,7 @@ EOF
   exit "$code"
 }
 
-# Parse minimal bootstrap args.
+# Parse minimal bootstrap args and forward only supported installer flags.
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --tag) TAG="$2"; shift 2 ;;
@@ -71,6 +73,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Bootstrap always requires a release tag so downloaded assets are explicit.
 if [[ -z "$TAG" ]]; then
   echo "❌ Error: --tag is required"
   usage 1
@@ -115,6 +118,7 @@ echo "📦 Extracting release..."
 mkdir -p repo
 tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
 cd repo
+# Ensure installer is executable in freshly extracted archives.
 chmod +x install.sh
 
 echo "🚀 Running installer..."

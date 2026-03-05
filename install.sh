@@ -58,6 +58,7 @@ timestamp() {
   fi
 }
 
+# Build a unique backup target path using timestamp + numeric suffix.
 next_backup_path() {
   local base="$1"
   local ts candidate i
@@ -95,6 +96,7 @@ format_cmd() {
   printf '%s' "${out# }"
 }
 
+# Execute a command (or print it in dry-run mode).
 run() {
   if [[ "$DRY_RUN" -eq 1 ]]; then
     printf '🧪 DRY: %s\n' "$(format_cmd "$@")"
@@ -104,6 +106,7 @@ run() {
   "$@"
 }
 
+# Execute a pipeline string (kept for legacy install snippets).
 run_pipe() {
   local pipeline="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -114,6 +117,7 @@ run_pipe() {
   bash -c "$pipeline"
 }
 
+# Print CLI help text.
 usage() {
   cat <<EOF
 install.sh [options]
@@ -262,6 +266,7 @@ run_root() {
   fi
 }
 
+# Escape string data for JSON output fields.
 json_escape() {
   local s="$1"
   s="${s//\\/\\\\}"
@@ -270,6 +275,7 @@ json_escape() {
   printf '%s' "$s"
 }
 
+# Emit end-of-run phase summary and optional JSON report.
 write_install_report() {
   local exit_code="$1"
   local final_status="error"
@@ -314,6 +320,7 @@ EOF
   ok "Wrote install report: ${REPORT_JSON}"
 }
 
+# Acquire a process lock so two installers do not mutate dotfiles concurrently.
 acquire_install_lock() {
   if [[ "$NO_LOCK" -eq 1 ]]; then
     info "🔓 Installer lock disabled (--no-lock)."
@@ -355,12 +362,14 @@ acquire_install_lock() {
   exit 1
 }
 
+# Best-effort lock cleanup on exit.
 release_install_lock() {
   if [[ "$LOCK_HELD" -eq 1 && -n "$LOCK_DIR" && -d "$LOCK_DIR" ]]; then
     rm -rf "$LOCK_DIR"
   fi
 }
 
+# Validate core runtime tooling before making changes.
 run_preflight_checks() {
   PHASE_PREFLIGHT="in_progress"
   info "🧪 Running preflight checks..."
@@ -398,6 +407,7 @@ run_preflight_checks() {
   PHASE_PREFLIGHT="ok"
 }
 
+# Download and execute an upstream install script in a controlled way.
 run_remote_install_script() {
   local name="$1"
   local url="$2"
@@ -426,6 +436,7 @@ run_remote_install_script() {
   ok "Finished ${name} installation script."
 }
 
+# Interactive confirmation helper used for shell switch prompts.
 confirm_or_die() {
   local prompt="$1"
   if [[ "$ASSUME_YES" -eq 1 ]]; then
@@ -438,6 +449,7 @@ confirm_or_die() {
   esac
 }
 
+# Parse common boolean-like YAML values into 0/1 toggles.
 bool_to_int() {
   local normalized
   normalized="$(printf '%s' "$1" | tr '[:upper:]' '[:lower:]')"
@@ -448,12 +460,14 @@ bool_to_int() {
   esac
 }
 
+# Minimal scalar lookup from simple inventory YAML files.
 yaml_get_scalar() {
   local key="$1"
   local file="$2"
   awk -F': *' -v k="$key" '$1 == k {print $2; exit}' "$file" | tr -d "\"'"
 }
 
+# Apply inventory defaults unless user supplied explicit CLI values.
 apply_inventory_file() {
   local file="$1"
   [[ -f "$file" ]] || return 0
@@ -476,6 +490,7 @@ apply_inventory_file() {
   [[ -n "$val" ]] && SKEL_PROFILE="$val"
 }
 
+# Read a YAML list section using a strict, lightweight awk parser.
 read_yaml_list() {
   local file="$1"
   local section="$2"
@@ -494,6 +509,7 @@ read_yaml_list() {
   ' "$file"
 }
 
+# Rename target to a unique backup path (used for override mode).
 backup_path() {
   local path="$1"
   if [[ -e "$path" || -L "$path" ]]; then
@@ -504,6 +520,7 @@ backup_path() {
   fi
 }
 
+# Copy target to a unique backup path while keeping original in place.
 backup_copy() {
   local path="$1"
   if [[ -e "$path" || -L "$path" ]]; then
@@ -514,12 +531,14 @@ backup_copy() {
   fi
 }
 
+# Portable recursive copy wrapper used by skel deployment.
 copy_item() {
   local src="$1"
   local dest="$2"
   run cp -Rp "$src" "$dest"
 }
 
+# Merge src directory into dest without overwriting existing files.
 merge_dir_without_overwrite() {
   local src="$1"
   local dest="$2"
@@ -590,6 +609,7 @@ install_brew_if_missing() {
   ok "Homebrew installed and initialized."
 }
 
+# Install baseline apt packages needed on Linux before brew workloads.
 install_apt_baseline() {
   local pkgs=(
     build-essential curl wget ca-certificates gnupg lsb-release locales git pkg-config make gcc g++
@@ -605,6 +625,7 @@ install_apt_baseline() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
 }
 
+# Install apt fallback package list from YAML section.
 install_apt_from_yaml() {
   local file="$1"
   local section="$2"
@@ -625,6 +646,7 @@ install_apt_from_yaml() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"
 }
 
+# Install brew package list from YAML section.
 install_brew_from_yaml() {
   local file="$1"
   local section="$2"
