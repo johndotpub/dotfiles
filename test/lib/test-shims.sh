@@ -77,6 +77,15 @@ set -euo pipefail
 if [[ "${1:-}" == "clone" ]]; then
   target="${@: -1}"
   mkdir -p "$target"
+  if [[ "$(basename "$target")" == ".tmux" ]]; then
+    cat > "${target}/.tmux.conf" <<'OUT'
+# fake oh-my-tmux config
+OUT
+    cat > "${target}/.tmux.conf.local" <<'OUT'
+# fake oh-my-tmux local config
+OUT
+    exit 0
+  fi
   cat > "${target}/Makefile" <<'OUT'
 install:
 	@echo "nanorc install"

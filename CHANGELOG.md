@@ -19,6 +19,10 @@ All notable changes to this project are documented here.
 - 🌃 Default Starship **Tokyo Night** preset support:
   - `skel/default/.config/starship.toml` includes the official preset.
   - Installer and `scripts/setup-starship.sh` apply `starship preset tokyo-night` when available.
+- 🧱 tmux experience improvements:
+  - installer can bootstrap **oh-my-tmux** (`gpakosz/.tmux`) and link `~/.tmux.conf`
+  - default local overrides shipped in `skel/default/.tmux.conf.local`
+  - zsh plugin set now includes Oh My Zsh `tmux` plugin
 - 📝 Nano tooling support:
   - default git editor set to `nano`
   - nanorc setup (`~/.nano` + `~/.nanorc` include line)
