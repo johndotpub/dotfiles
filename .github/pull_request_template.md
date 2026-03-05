@@ -18,7 +18,7 @@
 - [ ] `./install.sh --help`
 - [ ] `./bootstrap.sh --help`
 - [ ] `./install.sh --dry-run --no-apt --brew-only --yes --verbose`
-- [ ] `./test/test-installer-idempotency.sh`
+- [ ] `bats test/installer.bats`
 
 ## 📚 Docs / Changelog
 

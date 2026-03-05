@@ -7,6 +7,11 @@ setup() {
   REPO_DIR="$(cd "${BATS_TEST_DIRNAME}/.." && pwd)"
 }
 
+@test "no root config duplicates check passes" {
+  run bash "${REPO_DIR}/test/check-no-root-config-duplicates.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "installer idempotency script passes" {
   run bash "${REPO_DIR}/test/test-installer-idempotency.sh"
   [ "$status" -eq 0 ]
@@ -22,6 +27,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "ssh config migration script passes" {
+  run bash "${REPO_DIR}/test/test-ssh-config-migration.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "oh-my-tmux behavior script passes" {
   run bash "${REPO_DIR}/test/test-oh-my-tmux.sh"
   [ "$status" -eq 0 ]
@@ -34,5 +44,10 @@ setup() {
 
 @test "report JSON script passes" {
   run bash "${REPO_DIR}/test/test-report-json.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "reproducibility script passes" {
+  run bash "${REPO_DIR}/test/verify-release-reproducible.sh" "${RELEASE_TAG:-v0.0.0-test}"
   [ "$status" -eq 0 ]
 }

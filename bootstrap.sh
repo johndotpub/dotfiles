@@ -17,6 +17,9 @@ TAG=""
 HOST=""
 PYVER=""
 ASSUME_YES=0
+# Optional signer pin for checksum signature verification.
+# When set, verification fails unless the signature matches this fingerprint.
+EXPECTED_GPG_FINGERPRINT="${BOOTSTRAP_GPG_FINGERPRINT:-}"
 
 # Verify <artifact> against expected SHA256 listed in checksum file.
 # Supports GNU coreutils (`sha256sum`) and BSD/macOS (`shasum -a 256`).
@@ -126,11 +129,28 @@ if curl -fsSLo /dev/null -L "${SHA_SIG_URL}" 2>/dev/null; then
   if ! command -v gpg >/dev/null 2>&1; then
     echo "ℹ️ Skipping GPG verification: 'gpg' is not installed."
   else
+    gpg_status=""
+    signer_fpr=""
+    expected_fpr=""
     echo "🔐 Found checksum signature; verifying with gpg..."
     curl -fsSLo "${ASSET_BASENAME}.sha256.asc" -L "${SHA_SIG_URL}"
-    if ! gpg --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256"; then
+    if ! gpg_status="$(gpg --status-fd=1 --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256" 2>&1)"; then
       echo "❌ GPG verification failed; aborting."
       exit 2
+    fi
+    signer_fpr="$(printf '%s\n' "$gpg_status" | awk '/^\[GNUPG:\] VALIDSIG / {print toupper($3); exit}')"
+    if [[ -n "$EXPECTED_GPG_FINGERPRINT" ]]; then
+      expected_fpr="$(printf '%s' "$EXPECTED_GPG_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+      if [[ -z "$signer_fpr" || "$signer_fpr" != "$expected_fpr" ]]; then
+        echo "❌ GPG signer fingerprint mismatch."
+        echo "Expected: ${expected_fpr}"
+        echo "Actual:   ${signer_fpr:-<unknown>}"
+        exit 2
+      fi
+      echo "✅ GPG signature verified with expected fingerprint: ${expected_fpr}"
+    else
+      echo "ℹ️ GPG signature verified."
+      echo "ℹ️ Tip: set BOOTSTRAP_GPG_FINGERPRINT to enforce a specific trusted signer."
     fi
   fi
 fi
