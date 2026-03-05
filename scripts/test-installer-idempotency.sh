@@ -51,12 +51,6 @@ EOF
 chmod +x "${FAKE_BIN}/brew"
 
 # uv presence shim
-cat > "${FAKE_BIN}/uv" <<'EOF'
-#!/usr/bin/env bash
-echo "uv 0.0.0-test"
-EOF
-chmod +x "${FAKE_BIN}/uv"
-
 # starship shim supporting:
 # - --version
 # - preset --help

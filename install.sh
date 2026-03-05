@@ -638,24 +638,6 @@ if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
   fi
 fi
 
-# uv is useful for modern Python tooling workflows.
-if ! command -v uv >/dev/null 2>&1; then
-  info "🐍 Installing uv..."
-  if ! command -v brew >/dev/null 2>&1; then
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      printf '🧪 DRY: brew install uv\n'
-    else
-      err "Homebrew is required to install uv in this brew-first installer."
-      exit 1
-    fi
-  elif ! run brew install uv; then
-    err "brew install uv failed. Fix brew issues and re-run installer."
-    exit 1
-  fi
-else
-  ok "uv is available."
-fi
-
 # Inference tools are explicitly opt-in.
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
   info "🤖 Installing optional inference tools..."
