@@ -4,7 +4,29 @@ All notable changes to this project are documented here.
 
 ## [Unreleased] 🚧
 
-- No unreleased changes yet.
+### Added ✨
+- 🔒 Installer execution lock to prevent overlapping runs from mutating the same files concurrently.
+- 🧪 Preflight phase in `install.sh` to validate required tooling early and surface actionable warnings.
+- 📋 Optional machine-readable install report via `--report-json <path>`, including per-phase status and exit code.
+- 🌐 Safer remote installer wrapper for optional inference tools (download-then-execute with retries and clear status logs).
+- 🧾 Canonical package source of truth at `packages/manifest.json`.
+- 🛠️ `scripts/generate-package-manifests.sh` to generate and verify `packages/*.txt` manifests.
+- 🧹 `scripts/check-no-root-config-duplicates.sh` to enforce DRY shell-config ownership in `skel/default/`.
+- ♻️ `scripts/verify-release-reproducible.sh` for deterministic tarball reproducibility checks.
+- 🧪 Additional integration coverage:
+  - `scripts/test-backup-collision.sh` (deterministic backup suffix behavior)
+  - `scripts/test-skel-merge-behavior.sh` (merge-missing-only behavior)
+  - `tests/installer.bats` BATS suite wrapping installer integration tests.
+
+### Changed 🔧
+- 🧩 Directory merge fallback in `install.sh` now uses explicit missing-path copy logic (instead of `cp -n`), reducing cross-platform drift and noisy warnings.
+- ✅ CI and release workflows now enforce:
+  - package manifest generation checks
+  - no duplicate repo-root shell config files
+  - expanded installer integration checks + BATS suite
+  - reproducible release artifact verification.
+- 📦 Release tarball creation switched to deterministic tar flags (`--sort=name`, normalized mtime/owner/group).
+- 📚 README updated with lock/reporting flags, package manifest workflow, reproducibility validation, and expanded CI/test notes.
 
 ## [v1.0.0] 🎉
 
