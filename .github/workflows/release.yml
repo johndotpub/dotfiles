@@ -18,9 +18,7 @@ jobs:
         id: asset
         run: |
           REPO_NAME="${GITHUB_REPOSITORY##*/}"
-          while [[ "$REPO_NAME" == .* ]]; do
-            REPO_NAME="${REPO_NAME#.}"
-          done
+          REPO_NAME="${REPO_NAME#.}"
           if [[ -z "$REPO_NAME" ]]; then
             REPO_NAME="repo"
           fi

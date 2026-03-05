@@ -78,29 +78,6 @@ verify_checksum() {
   echo "${artifact_file}: OK"
 }
 
-# Build candidate release asset names for this repo/tag.
-# Dot-prefixed repos need special handling because hidden filenames can be
-# rewritten by release upload tooling.
-build_asset_candidates() {
-  local tag="$1"
-  local repo_name normalized
-  repo_name="${REPO##*/}"
-  normalized="$repo_name"
-
-  while [[ "$normalized" == .* ]]; do
-    normalized="${normalized#.}"
-  done
-  if [[ -z "$normalized" ]]; then
-    normalized="repo"
-  fi
-
-  ASSET_CANDIDATES=("${normalized}-${tag}.tar.gz")
-  if [[ "$repo_name" == .* ]]; then
-    ASSET_CANDIDATES+=("default${repo_name}-${tag}.tar.gz")
-    ASSET_CANDIDATES+=("${repo_name}-${tag}.tar.gz")
-  fi
-}
-
 # Print usage and exit with optional code.
 usage() {
   local code="${1:-1}"
@@ -133,30 +110,37 @@ fi
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
-build_asset_candidates "$TAG"
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
+RAW_REPO_NAME="${REPO##*/}"
+NORMALIZED_REPO_NAME="${RAW_REPO_NAME#.}"
+if [[ -z "$NORMALIZED_REPO_NAME" ]]; then
+  NORMALIZED_REPO_NAME="repo"
+fi
+ASSET_BASENAME="${NORMALIZED_REPO_NAME}-${TAG}.tar.gz"
+TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
 
 cd "$TMPDIR"
 echo "📥 Downloading release tarball..."
-ASSET_BASENAME=""
-TARBALL_URL=""
-for candidate in "${ASSET_CANDIDATES[@]}"; do
-  candidate_url="${RELEASE_BASE}/${candidate}"
-  if curl -fsSLo "${candidate}" -L "${candidate_url}"; then
-    ASSET_BASENAME="${candidate}"
-    TARBALL_URL="${candidate_url}"
-    break
+if ! curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"; then
+  # Backward compatibility for v1.0.0 where hidden asset names were
+  # rewritten to `default.<repo>-<tag>.tar.gz` by release tooling.
+  if [[ "${RAW_REPO_NAME}" == .* ]]; then
+    LEGACY_ASSET_BASENAME="default${RAW_REPO_NAME}-${TAG}.tar.gz"
+    LEGACY_TARBALL_URL="${RELEASE_BASE}/${LEGACY_ASSET_BASENAME}"
+    if curl -fsSLo "${LEGACY_ASSET_BASENAME}" -L "${LEGACY_TARBALL_URL}"; then
+      ASSET_BASENAME="${LEGACY_ASSET_BASENAME}"
+      TARBALL_URL="${LEGACY_TARBALL_URL}"
+    else
+      echo "❌ Unable to download release tarball for tag ${TAG}."
+      echo "Tried:"
+      echo "  - ${RELEASE_BASE}/${NORMALIZED_REPO_NAME}-${TAG}.tar.gz"
+      echo "  - ${RELEASE_BASE}/default${RAW_REPO_NAME}-${TAG}.tar.gz"
+      exit 1
+    fi
+  else
+    echo "❌ Unable to download release tarball for tag ${TAG}: ${TARBALL_URL}"
+    exit 1
   fi
-  rm -f "${candidate}"
-done
-
-if [[ -z "${ASSET_BASENAME}" ]]; then
-  echo "❌ Unable to download release tarball for tag ${TAG}."
-  echo "Tried:"
-  for candidate in "${ASSET_CANDIDATES[@]}"; do
-    echo "  - ${RELEASE_BASE}/${candidate}"
-  done
-  exit 1
 fi
 
 SHA_URL="${TARBALL_URL}.sha256"
