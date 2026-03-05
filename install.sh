@@ -269,10 +269,32 @@ run_root() {
 # Escape string data for JSON output fields.
 json_escape() {
   local s="$1"
-  s="${s//\\/\\\\}"
-  s="${s//\"/\\\"}"
-  s="${s//$'\n'/\\n}"
-  printf '%s' "$s"
+  local out="" code hex char
+  while IFS= read -r code; do
+    [[ -n "$code" ]] || continue
+    if (( code == 34 )); then
+      out+="\\\""
+    elif (( code == 92 )); then
+      out+="\\\\"
+    elif (( code == 8 )); then
+      out+="\\b"
+    elif (( code == 9 )); then
+      out+="\\t"
+    elif (( code == 10 )); then
+      out+="\\n"
+    elif (( code == 12 )); then
+      out+="\\f"
+    elif (( code == 13 )); then
+      out+="\\r"
+    elif (( code >= 0 && code <= 31 )); then
+      printf -v hex '%04x' "$code"
+      out+="\\u${hex}"
+    else
+      printf -v char '\\%03o' "$code"
+      out+="$char"
+    fi
+  done < <(printf '%s' "$s" | od -An -t u1 -v | tr -s '[:space:]' '\n')
+  printf '%s' "$out"
 }
 
 # Emit end-of-run phase summary and optional JSON report.

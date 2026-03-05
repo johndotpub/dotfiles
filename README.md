@@ -101,7 +101,7 @@ TAG=v1.0.0
 REPO_NAME="$(basename "$PWD")"
 mkdir -p dist
 tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
-  -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
+  --exclude='.git' --exclude='./dist' -cf - . | gzip -n > "dist/${REPO_NAME}-${TAG}.tar.gz"
 (cd dist && sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256")
 ```
 
