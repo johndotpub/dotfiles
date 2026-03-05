@@ -37,6 +37,19 @@ SKEL_PROFILE="default"
 
 timestamp() { date +%Y%m%d%H%M%S; }
 
+next_backup_path() {
+  local base="$1"
+  local ts candidate i
+  ts="$(timestamp)"
+  candidate="${base}.bak.${ts}"
+  i=0
+  while [[ -e "$candidate" || -L "$candidate" ]]; do
+    i=$((i + 1))
+    candidate="${base}.bak.${ts}.${i}"
+  done
+  printf '%s\n' "$candidate"
+}
+
 # ------------------------------------------------------------------------------
 # Logging and command execution helpers
 # ------------------------------------------------------------------------------
@@ -276,7 +289,7 @@ backup_path() {
   local path="$1"
   if [[ -e "$path" || -L "$path" ]]; then
     local bak
-    bak="${path}.bak.$(timestamp)"
+    bak="$(next_backup_path "$path")"
     run mv "$path" "$bak"
     debug "Backed up ${path} -> ${bak}"
   fi
@@ -286,7 +299,7 @@ backup_copy() {
   local path="$1"
   if [[ -e "$path" || -L "$path" ]]; then
     local bak
-    bak="${path}.bak.$(timestamp)"
+    bak="$(next_backup_path "$path")"
     run cp -Rp "$path" "$bak"
     debug "Backed up copy ${path} -> ${bak}"
   fi
@@ -527,6 +540,29 @@ configure_nano_syntax() {
   ok "Configured ${nano_rc} with nanorc include."
 }
 
+ensure_zsh_pyenv_plugin() {
+  local zsh_dir="${HOME}/.oh-my-zsh"
+  local custom_dir="${ZSH_CUSTOM:-${zsh_dir}/custom}"
+  local custom_plugin_dir="${custom_dir}/plugins/zsh-pyenv"
+  local built_in_plugin_dir="${zsh_dir}/plugins/zsh-pyenv"
+
+  if [[ ! -d "$zsh_dir" ]]; then
+    debug "Oh My Zsh not found; skipping zsh-pyenv plugin install."
+    return 0
+  fi
+
+  if [[ -d "$custom_plugin_dir" || -d "$built_in_plugin_dir" ]]; then
+    info "↪️  zsh-pyenv plugin already available."
+    return 0
+  fi
+
+  info "🧩 Installing zsh-pyenv plugin for Oh My Zsh..."
+  run mkdir -p "${custom_dir}/plugins"
+  if ! run git clone --depth 1 https://github.com/mattberther/zsh-pyenv.git "$custom_plugin_dir"; then
+    warn "Could not install zsh-pyenv plugin automatically. You can install it later manually."
+  fi
+}
+
 print_checks() {
   # Traffic-light output gives an easy visual summary of final state.
   printf '🚦 Post-install checks\n'
@@ -636,6 +672,7 @@ fi
 configure_starship_prompt
 deploy_skel_profile "$SKEL_PROFILE"
 configure_nano_syntax
+ensure_zsh_pyenv_plugin
 
 # ~/.python-version is managed only when CREATE_HOME_PYVER is enabled
 # (via flags or inventory).

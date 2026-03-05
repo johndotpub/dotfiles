@@ -89,7 +89,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 TAG=v1.0.0
 REPO_NAME="$(basename "$PWD")"
 mkdir -p dist
-tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' .
+tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
 (cd dist && sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256")
 ```
 
