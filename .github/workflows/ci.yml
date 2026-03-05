@@ -21,17 +21,23 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y shellcheck
+          sudo apt-get install -y shellcheck bats
 
       - name: Install shellcheck (macOS)
         if: runner.os == 'macOS'
-        run: brew install shellcheck
+        run: brew install shellcheck bats-core
 
       - name: Shell syntax checks
         run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
 
       - name: Shellcheck lint
         run: shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+
+      - name: Enforce generated package manifests
+        run: ./scripts/generate-package-manifests.sh --check
+
+      - name: Enforce no repo-root config duplicates
+        run: ./scripts/check-no-root-config-duplicates.sh
 
       - name: Help smoke tests
         run: |
@@ -43,3 +49,12 @@ jobs:
 
       - name: Idempotency test
         run: ./scripts/test-installer-idempotency.sh
+
+      - name: Backup collision test
+        run: ./scripts/test-backup-collision.sh
+
+      - name: Skel merge behavior test
+        run: ./scripts/test-skel-merge-behavior.sh
+
+      - name: BATS installer suite
+        run: bats tests/installer.bats
