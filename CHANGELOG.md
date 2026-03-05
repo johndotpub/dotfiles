@@ -39,6 +39,7 @@ All notable changes to this project are documented here.
   - backup collision test (`.bak.<date>[.<n>]`)
   - skel merge behavior test (preserve existing + copy missing)
   - BATS test suite (`test/installer.bats`)
+  - test layout standardized under `test/`
   - CI matrix on Ubuntu + macOS
 - ♻️ Release reproducibility checks:
   - deterministic tarball creation (`--sort=name`, normalized mtime/owner/group)
@@ -46,6 +47,7 @@ All notable changes to this project are documented here.
 - 🤖 Repo guidance and collaboration templates:
   - `.github/copilot-instructions.md`
   - `.github/pull_request_template.md`
+- 📝 Copilot/agentic standards now explicitly require ample, purposeful section/function comments in shell scripts and tests.
 - 📌 README badge set expanded to 12 badges (4-per-line layout).
 - 🧾 Substantial inline comments added across installer and key operational scripts.
 
