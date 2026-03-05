@@ -38,6 +38,14 @@ Use these repository standards for all generated code, docs, and workflow update
 - Keep repeated constants and behaviors centralized where possible.
 - Update docs when behavior changes.
 
+## Commenting standards
+
+- Add **ample, purposeful comments** in shell scripts and tests.
+- Every script should include clear section-level comments for major phases.
+- Every non-trivial function should have a short intent comment above it.
+- Prefer comments that explain **why** or policy intent, not obvious syntax.
+- Keep comments current when behavior changes (no stale or misleading notes).
+
 ## Docs/content standards
 
 - Keep README clear, practical, and concise.
