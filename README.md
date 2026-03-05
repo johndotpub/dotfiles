@@ -18,6 +18,8 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (preserves existing files by default)
+- 🔒 Single-run lock to prevent concurrent installer collisions
+- 📋 Optional machine-readable install report (`--report-json`)
 
 ## 🚀 Quick start (local)
 
@@ -48,13 +50,22 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 ├── inventory/
 │   └── default.yaml
 ├── packages/
+│   ├── manifest.json
 │   ├── brew-packages.txt
 │   └── apt-minimal.txt
 ├── scripts/
 │   ├── lib/brew-env.sh
+│   ├── check-no-root-config-duplicates.sh
+│   ├── generate-package-manifests.sh
 │   ├── setup-pyenv.sh
 │   ├── setup-starship.sh
-│   └── post-install-checks.sh
+│   ├── post-install-checks.sh
+│   ├── test-backup-collision.sh
+│   ├── test-installer-idempotency.sh
+│   ├── test-skel-merge-behavior.sh
+│   └── verify-release-reproducible.sh
+├── tests/
+│   └── installer.bats
 └── skel/
     └── default/
         ├── .zshrc
@@ -83,6 +94,8 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 - `--no-apt`
 - `--verbose`
 - `--from-release` (set internally by bootstrap)
+- `--report-json <path>` (writes a JSON phase summary)
+- `--no-lock` (advanced/debug; disables install lock guard)
 
 ## 📦 Build a release artifact manually
 
@@ -90,8 +103,27 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 TAG=v1.0.0
 REPO_NAME="$(basename "$PWD")"
 mkdir -p dist
-tar -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
+tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
+  -czf "dist/${REPO_NAME}-${TAG}.tar.gz" --exclude='.git' --exclude='./dist' .
 (cd dist && sha256sum "${REPO_NAME}-${TAG}.tar.gz" > "${REPO_NAME}-${TAG}.tar.gz.sha256")
+```
+
+Verify deterministic archive output:
+
+```bash
+./scripts/verify-release-reproducible.sh "$TAG"
+```
+
+## 🧰 Package manifest workflow
+
+`packages/manifest.json` is the source of truth for package lists.
+
+```bash
+# regenerate packages/brew-packages.txt and packages/apt-minimal.txt
+./scripts/generate-package-manifests.sh
+
+# verify generated files are current (used by CI)
+./scripts/generate-package-manifests.sh --check
 ```
 
 ## 🧠 Migration notes
@@ -104,8 +136,13 @@ GitHub Actions runs a CI workflow that checks:
 
 - shell syntax (`bash -n`)
 - shellcheck linting
+- generated package manifest consistency
+- no duplicate repo-root shell config files
 - installer/bootstrap help output
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
+- backup collision handling for deterministic `.bak.<date>[.<n>]` naming
+- skel directory merge behavior (preserve existing files, copy missing files)
+- BATS installer suite (`tests/installer.bats`)
 
 ## 📝 Changelog
 
