@@ -28,10 +28,10 @@ jobs:
         run: brew install shellcheck bats-core
 
       - name: Shell syntax checks
-        run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
+        run: bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
 
       - name: Shellcheck lint
-        run: shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
+        run: shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
 
       - name: Enforce no repo-root config duplicates
         run: ./test/check-no-root-config-duplicates.sh

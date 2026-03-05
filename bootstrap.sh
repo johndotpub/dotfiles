@@ -19,25 +19,50 @@ PYVER=""
 ASSUME_YES=0
 
 # Verify <artifact> against expected SHA256 listed in checksum file.
-# Supports GNU coreutils (`sha256sum -c`) and BSD/macOS (`shasum -a 256`).
+# Supports GNU coreutils (`sha256sum`) and BSD/macOS (`shasum -a 256`).
 verify_checksum() {
   local checksum_file="$1"
   local artifact_file="$2"
+  local artifact_name expected actual
+  artifact_name="$(basename "$artifact_file")"
 
-  if command -v sha256sum >/dev/null 2>&1; then
-    sha256sum -c "$checksum_file"
-    return 0
-  fi
+  # Parse checksum entries and bind the expected hash to the exact artifact name.
+  expected="$(
+    awk -v file="$artifact_name" '
+      /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+      {
+        hash = ""
+        name = ""
+        if ($0 ~ /^SHA256 \(/) {
+          line = $0
+          sub(/^SHA256 \(/, "", line)
+          split(line, parts, /\) = /)
+          if (length(parts) >= 2) {
+            name = parts[1]
+            hash = parts[2]
+          }
+        } else {
+          hash = $1
+          name = $2
+          sub(/^\*/, "", name)
+        }
+        if (tolower(name) == tolower(file) && hash ~ /^[0-9a-fA-F]{64}$/) {
+          print tolower(hash)
+          exit
+        }
+      }
+    ' "$checksum_file"
+  )"
 
-  local expected actual
-  expected="$(awk '{print $1}' "$checksum_file" | awk 'NR==1 {print $1}')"
   if [[ -z "$expected" ]]; then
-    echo "❌ Could not parse expected SHA256 from ${checksum_file}."
+    echo "❌ Could not find a SHA256 entry for ${artifact_name} in ${checksum_file}."
     return 1
   fi
 
-  if command -v shasum >/dev/null 2>&1; then
-    actual="$(shasum -a 256 "$artifact_file" | awk '{print $1}')"
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual="$(sha256sum "$artifact_file" | awk '{print tolower($1)}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual="$(shasum -a 256 "$artifact_file" | awk '{print tolower($1)}')"
   else
     echo "❌ No SHA256 tool found (need sha256sum or shasum)."
     return 1
