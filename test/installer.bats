@@ -5,16 +5,16 @@ setup() {
 }
 
 @test "installer idempotency script passes" {
-  run bash "${REPO_DIR}/scripts/test-installer-idempotency.sh"
+  run bash "${REPO_DIR}/test/test-installer-idempotency.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "backup collision script passes" {
-  run bash "${REPO_DIR}/scripts/test-backup-collision.sh"
+  run bash "${REPO_DIR}/test/test-backup-collision.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "skel merge behavior script passes" {
-  run bash "${REPO_DIR}/scripts/test-skel-merge-behavior.sh"
+  run bash "${REPO_DIR}/test/test-skel-merge-behavior.sh"
   [ "$status" -eq 0 ]
 }

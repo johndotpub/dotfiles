@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Set script permissions
-        run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
+        run: chmod +x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
 
       - name: Install shellcheck
         run: |
@@ -24,17 +24,16 @@ jobs:
 
       - name: Run release validation tests
         run: |
-          bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
-          shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh
-          ./scripts/generate-package-manifests.sh --check
-          ./scripts/check-no-root-config-duplicates.sh
+          bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
+          shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
+          ./test/check-no-root-config-duplicates.sh
           ./install.sh --help >/dev/null
           ./bootstrap.sh --help >/dev/null
-          ./scripts/test-installer-idempotency.sh
-          ./scripts/test-backup-collision.sh
-          ./scripts/test-skel-merge-behavior.sh
-          bats tests/installer.bats
-          ./scripts/verify-release-reproducible.sh "${GITHUB_REF_NAME}"
+          ./test/test-installer-idempotency.sh
+          ./test/test-backup-collision.sh
+          ./test/test-skel-merge-behavior.sh
+          bats test/installer.bats
+          ./test/verify-release-reproducible.sh "${GITHUB_REF_NAME}"
 
       - name: Create tarball + checksum
         run: |

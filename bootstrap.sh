@@ -36,24 +36,8 @@ verify_checksum() {
 
   if command -v shasum >/dev/null 2>&1; then
     actual="$(shasum -a 256 "$artifact_file" | awk '{print $1}')"
-  elif command -v python3 >/dev/null 2>&1; then
-    actual="$(python3 - "$artifact_file" <<'PY'
-import hashlib
-import sys
-
-path = sys.argv[1]
-digest = hashlib.sha256()
-with open(path, "rb") as f:
-    while True:
-        chunk = f.read(1024 * 1024)
-        if not chunk:
-            break
-        digest.update(chunk)
-print(digest.hexdigest())
-PY
-)"
   else
-    echo "❌ No SHA256 tool found (need sha256sum, shasum, or python3)."
+    echo "❌ No SHA256 tool found (need sha256sum or shasum)."
     return 1
   fi
 
