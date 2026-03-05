@@ -21,3 +21,8 @@ setup() {
   run bash "${REPO_DIR}/test/test-skel-merge-behavior.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "report JSON script passes" {
+  run bash "${REPO_DIR}/test/test-report-json.sh"
+  [ "$status" -eq 0 ]
+}

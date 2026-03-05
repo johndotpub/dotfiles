@@ -17,19 +17,7 @@ if ! brew install pyenv pyenv-virtualenv; then
   had_errors=1
 fi
 
-# Install zsh plugin only when Oh My Zsh is present.
-# This keeps non-OMZ shells untouched.
-if [[ -d "${HOME}/.oh-my-zsh" ]]; then
-  zsh_custom="${ZSH_CUSTOM:-${HOME}/.oh-my-zsh/custom}"
-  plugin_dir="${zsh_custom}/plugins/zsh-pyenv"
-  mkdir -p "${zsh_custom}/plugins"
-  if [[ ! -d "$plugin_dir" ]]; then
-    if ! git clone --depth 1 https://github.com/mattberther/zsh-pyenv.git "$plugin_dir"; then
-      echo "Warning: failed to install zsh-pyenv plugin at ${plugin_dir}." >&2
-      had_errors=1
-    fi
-  fi
-fi
+# Plugin wiring is handled in skel/default/.zshrc using the default OMZ pyenv plugin.
 
 if [[ "$had_errors" -ne 0 ]]; then
   exit 1

@@ -17,11 +17,13 @@ HISTSIZE=-1
 HISTFILESIZE=-1
 HISTCONTROL=ignoreboth
 
-plugins=(git)
-if [[ -d "$ZSH/custom/plugins/zsh-pyenv" || -d "$ZSH/plugins/zsh-pyenv" ]]; then
-  plugins+=(zsh-pyenv)
-elif [[ -d "$ZSH/plugins/pyenv" ]]; then
-  plugins+=(pyenv)
+plugins=(git pyenv)
+# Useful default plugins that align with installed tooling/flows.
+if [[ -d "$ZSH/plugins/fzf" ]]; then
+  plugins+=(fzf)
+fi
+if [[ -d "$ZSH/plugins/sudo" ]]; then
+  plugins+=(sudo)
 fi
 if [[ -d "$ZSH" ]]; then
   source "$ZSH/oh-my-zsh.sh"

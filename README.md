@@ -58,8 +58,10 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   └── post-install-checks.sh
 ├── test/
 │   ├── check-no-root-config-duplicates.sh
+│   ├── lib/test-shims.sh
 │   ├── test-backup-collision.sh
 │   ├── test-installer-idempotency.sh
+│   ├── test-report-json.sh
 │   ├── test-skel-merge-behavior.sh
 │   ├── verify-release-reproducible.sh
 │   └── installer.bats
@@ -142,6 +144,7 @@ GitHub Actions runs a CI workflow that checks:
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
+- report JSON validity/escaping checks (`test/test-report-json.sh`)
 - BATS installer suite (`test/installer.bats`)
 - release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
 
