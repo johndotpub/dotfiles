@@ -16,6 +16,7 @@ Use these repository standards for all generated code, docs, and workflow update
 - Keep `.zshrc` concise and close to project conventions.
 - Do not add `.zprofile` dependencies.
 - Any overwrite flow must create `.bak.<date>` backups.
+- `Host *` blocks in managed SSH client config are acceptable in this repo.
 
 ## Installer standards
 

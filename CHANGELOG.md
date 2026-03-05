@@ -17,13 +17,13 @@ All notable changes to this project are documented here.
 - 🐚 Zsh-first default environment with Oh My Zsh plugin baseline (`git pyenv python pip tmux`, plus conditional `fzf`/`sudo`).
 - 🌃 Prompt/editor/dev UX defaults:
   - Starship Tokyo Night preset
-  - Nano as default git editor + nanorc setup
+  - Nano as default git editor + nanorc setup (graceful if nanorc clone fails)
   - tmux + oh-my-tmux bootstrap with `~/.tmux.conf.local` overrides
 - 🔑 SSH safety migration:
   - managed `~/.ssh/config` includes `~/.ssh/config.local`
   - existing user `~/.ssh/config` auto-migrates to `config.local` when needed
-- 🤖 Optional inference tools via explicit opt-in only (`--install-inference` for ollama + llmfit).
-- ✅ CI/release quality gates with DRY BATS integration suite covering idempotency, backups, merge behavior, SSH migration, tmux behavior, lock contention, JSON report validity, inference opt-in, and reproducibility checks.
+- 🤖 Optional inference tools via explicit opt-in only (`--install-inference` for ollama + llmfit, with interactive confirmation unless `-y`).
+- ✅ CI/release quality gates with DRY BATS integration suite covering idempotency, backups, merge behavior, SSH migration, tmux behavior, lock contention, JSON report validity, inference opt-in, nanorc failure handling, and reproducibility checks.
 - 📦 Deterministic release artifact creation (`gzip -n` + normalized tar metadata) with checksum/signature publishing.
 - 📜 Project standards/docs baseline:
   - canonical `UNLICENSE`
