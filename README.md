@@ -66,6 +66,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── test-oh-my-tmux.sh
 │   ├── test-report-json.sh
 │   ├── test-skel-merge-behavior.sh
+│   ├── test-ssh-config-migration.sh
 │   ├── verify-release-reproducible.sh
 │   └── installer.bats
 └── skel/
@@ -99,6 +100,11 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 - `--from-release` (set internally by bootstrap)
 - `--report-json <path>` (writes a JSON phase summary)
 - `--no-lock` (advanced/debug; disables install lock guard)
+
+### 🔐 Security env knobs
+
+- `BOOTSTRAP_GPG_FINGERPRINT` to enforce expected checksum signer fingerprint in `bootstrap.sh`
+- `OLLAMA_SCRIPT_SHA256` / `LLMFIT_SCRIPT_SHA256` to override pinned inference installer checksums
 
 ## 📦 Build a release artifact manually
 
@@ -137,6 +143,8 @@ Repository AI guidance lives in `.github/copilot-instructions.md` and includes:
 ## 🧠 Migration notes
 
 - Existing files in `$HOME` are preserved by default; `--override` is opt-in.
+- Existing `~/.ssh/config` is auto-migrated to `~/.ssh/config.local` when local file is absent;
+  managed `~/.ssh/config` then includes `~/.ssh/config.local`.
 
 ## ✅ CI tests
 
@@ -149,10 +157,11 @@ GitHub Actions runs a CI workflow that checks:
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
+- SSH config include migration behavior (`test/test-ssh-config-migration.sh`)
 - oh-my-tmux bootstrap/preserve/override behavior (`test/test-oh-my-tmux.sh`)
 - installer lock contention behavior (`test/test-install-lock.sh`)
 - report JSON validity/escaping checks (`test/test-report-json.sh`)
-- BATS installer suite (`test/installer.bats`)
+- DRY BATS installer suite (`test/installer.bats`) running all integration checks
 - release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
 
 ## 📝 Changelog

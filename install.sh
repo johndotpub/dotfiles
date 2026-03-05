@@ -50,6 +50,11 @@ PKG_DIR="${REPO_DIR}/packages"
 INVENTORY_DIR="${REPO_DIR}/inventory"
 SKEL_PROFILE="default"
 
+# Pinned installer checksums for optional inference scripts.
+# Override with env vars if upstream installers rotate content.
+OLLAMA_SCRIPT_SHA256="${OLLAMA_SCRIPT_SHA256:-25f64b810b947145095956533e1bdf56eacea2673c55a7e586be4515fc882c9f}"
+LLMFIT_SCRIPT_SHA256="${LLMFIT_SCRIPT_SHA256:-300df90e4c9dd40b47b06742a1066eb9807117aaefba1cb017679a27420f0ca1}"
+
 timestamp() {
   if [[ -n "${DOTFILES_TEST_TIMESTAMP:-}" ]]; then
     printf '%s\n' "$DOTFILES_TEST_TIMESTAMP"
@@ -429,15 +434,36 @@ run_preflight_checks() {
   PHASE_PREFLIGHT="ok"
 }
 
+sha256_of_file() {
+  local file="$1"
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$file" | awk '{print tolower($1)}'
+    return 0
+  fi
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$file" | awk '{print tolower($1)}'
+    return 0
+  fi
+  return 1
+}
+
 # Download and execute an upstream install script in a controlled way.
 run_remote_install_script() {
   local name="$1"
   local url="$2"
+  local expected_sha="${3:-}"
   local tmp_script=""
+  local actual_sha=""
+  local dry_tmp="/tmp/dotfiles-${name}-install.sh"
 
   info "🌐 Installing ${name} via upstream installer script..."
   if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf '🧪 DRY: curl -fsSL --retry 3 --connect-timeout 15 %q | bash\n' "$url"
+    printf '🧪 DRY: curl -fsSL --retry 3 --connect-timeout 15 %q -o %q\n' "$url" "$dry_tmp"
+    if [[ -n "$expected_sha" ]]; then
+      printf '🧪 DRY: verify sha256(%q) == %q\n' "$dry_tmp" "$expected_sha"
+    fi
+    printf '🧪 DRY: bash %q\n' "$dry_tmp"
+    printf '🧪 DRY: rm -f %q\n' "$dry_tmp"
     return 0
   fi
 
@@ -446,6 +472,19 @@ run_remote_install_script() {
     warn "Failed to download installer script for ${name}: ${url}"
     rm -f "$tmp_script"
     return 1
+  fi
+
+  if [[ -n "$expected_sha" ]]; then
+    if ! actual_sha="$(sha256_of_file "$tmp_script")"; then
+      warn "No SHA256 tool found to verify ${name} installer script."
+      rm -f "$tmp_script"
+      return 1
+    fi
+    if [[ "$actual_sha" != "$(printf '%s' "$expected_sha" | tr '[:upper:]' '[:lower:]')" ]]; then
+      warn "${name} installer checksum mismatch. expected=${expected_sha} actual=${actual_sha}"
+      rm -f "$tmp_script"
+      return 1
+    fi
   fi
 
   if ! bash "$tmp_script"; then
@@ -799,6 +838,42 @@ configure_oh_my_tmux() {
   ok "Linked ${tmux_conf} -> ${tmux_main_conf}"
 }
 
+migrate_ssh_config_include_local() {
+  # Migration behavior for existing user SSH config:
+  # - if ~/.ssh/config exists and ~/.ssh/config.local does not,
+  #   move current config to config.local and seed managed config include file.
+  local ssh_dir="${HOME}/.ssh"
+  local ssh_cfg="${ssh_dir}/config"
+  local ssh_local_cfg="${ssh_dir}/config.local"
+  local skel_cfg="${SKEL_DIR}/${SKEL_PROFILE}/.ssh/config"
+
+  if [[ "$OVERRIDE" -eq 1 ]]; then
+    debug "Override mode enabled; skipping SSH config include migration helper."
+    return 0
+  fi
+
+  if [[ ! -e "$ssh_cfg" && ! -L "$ssh_cfg" ]]; then
+    return 0
+  fi
+
+  if [[ -e "$ssh_local_cfg" || -L "$ssh_local_cfg" ]]; then
+    debug "SSH local config already present; skipping migration."
+    return 0
+  fi
+
+  info "🔐 Migrating existing ~/.ssh/config -> ~/.ssh/config.local"
+  run mv "$ssh_cfg" "$ssh_local_cfg"
+
+  # Seed managed include config so existing user hosts still load via config.local.
+  if [[ -f "$skel_cfg" ]]; then
+    run mkdir -p "$ssh_dir"
+    copy_item "$skel_cfg" "$ssh_cfg"
+    ok "Seeded managed ~/.ssh/config include wrapper."
+  else
+    warn "Missing skel SSH config at ${skel_cfg}; ~/.ssh/config was not re-seeded."
+  fi
+}
+
 configure_nano_syntax() {
   # nanorc setup is intentionally conservative:
   # - existing ~/.nanorc is left untouched by default
@@ -981,10 +1056,10 @@ if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
   inference_failed=0
   PHASE_INFERENCE="in_progress"
   info "🤖 Installing optional inference tools..."
-  if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
+  if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh" "$OLLAMA_SCRIPT_SHA256"; then
     inference_failed=1
   fi
-  if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
+  if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh" "$LLMFIT_SCRIPT_SHA256"; then
     inference_failed=1
   fi
   if [[ "$inference_failed" -eq 0 ]]; then
@@ -1012,6 +1087,7 @@ fi
 PHASE_CONFIG="in_progress"
 configure_starship_prompt
 configure_oh_my_tmux || true
+migrate_ssh_config_include_local
 deploy_skel_profile "$SKEL_PROFILE"
 configure_nano_syntax
 

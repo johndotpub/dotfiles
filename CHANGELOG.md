@@ -23,6 +23,9 @@ All notable changes to this project are documented here.
   - installer can bootstrap **oh-my-tmux** (`gpakosz/.tmux`) and link `~/.tmux.conf`
   - default local overrides shipped in `skel/default/.tmux.conf.local`
   - zsh plugin set now includes Oh My Zsh `tmux` plugin
+- 🔐 SSH config migration helper:
+  - when `~/.ssh/config` exists and `~/.ssh/config.local` is absent, installer migrates existing config to `config.local`
+  - managed `~/.ssh/config` is seeded with `Include ~/.ssh/config.local`
 - 📝 Nano tooling support:
   - default git editor set to `nano`
   - nanorc setup (`~/.nano` + `~/.nanorc` include line)
@@ -39,13 +42,15 @@ All notable changes to this project are documented here.
   - no duplicate repo-root shell config checks
   - installer/bootstrap help smoke tests
   - dry-run smoke test
-  - idempotency integration test (including `--override` backup assertions)
-  - backup collision test (`.bak.<date>[.<n>]`)
-  - skel merge behavior test (preserve existing + copy missing)
-  - oh-my-tmux behavior test (`test/test-oh-my-tmux.sh`)
-  - installer lock contention test (`test/test-install-lock.sh`)
-  - report JSON validity/escaping test (`test/test-report-json.sh`)
-  - BATS test suite (`test/installer.bats`)
+  - DRY BATS test suite (`test/installer.bats`) covering:
+    - idempotency + override backup assertions
+    - backup collision suffixing
+    - skel merge behavior
+    - SSH include migration behavior
+    - oh-my-tmux behavior
+    - installer lock contention
+    - report JSON validity/escaping
+    - release reproducibility check
   - test layout standardized under `test/`
   - CI matrix on Ubuntu + macOS
 - ♻️ Release reproducibility checks:
@@ -70,6 +75,8 @@ All notable changes to this project are documented here.
 - 🐚 Removed custom `zsh-pyenv` cloning flow; standardized on default Oh My Zsh `pyenv` plugin usage in `skel/default/.zshrc`.
 - 🔐 nanorc clone path now supports pinned commit installs via `NANORC_REF` (default pinned to a known-good ref).
 - 🔐 Bootstrap checksum verification now relies on native SHA256 tools (`sha256sum`/`shasum`) without Python fallback.
+- 🔐 Bootstrap GPG verification now supports optional signer pinning via `BOOTSTRAP_GPG_FINGERPRINT`.
+- 🔐 Optional inference installer scripts are checksum-pinned by default (override via `OLLAMA_SCRIPT_SHA256` / `LLMFIT_SCRIPT_SHA256`).
 - 📦 Release/reproducibility tarballs now use deterministic gzip headers (`gzip -n`) in CI and verification checks.
 - 🧰 Canonical shell config ownership consolidated under `skel/default/` (DRY, zsh-first).
 - 📜 License standardized to canonical `UNLICENSE`.

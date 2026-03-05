@@ -26,17 +26,9 @@ jobs:
         run: |
           bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
           shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
-          ./test/check-no-root-config-duplicates.sh
           ./install.sh --help >/dev/null
           ./bootstrap.sh --help >/dev/null
-          ./test/test-installer-idempotency.sh
-          ./test/test-backup-collision.sh
-          ./test/test-skel-merge-behavior.sh
-          ./test/test-oh-my-tmux.sh
-          ./test/test-install-lock.sh
-          ./test/test-report-json.sh
-          bats test/installer.bats
-          ./test/verify-release-reproducible.sh "${GITHUB_REF_NAME}"
+          RELEASE_TAG="${GITHUB_REF_NAME}" bats test/installer.bats
 
       - name: Create tarball + checksum
         run: |
