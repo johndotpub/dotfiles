@@ -901,8 +901,12 @@ fi
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
   if [[ -f "$PKGS_YAML_FILE" ]]; then
     PHASE_APT_FALLBACK="in_progress"
-    install_apt_from_yaml "$PKGS_YAML_FILE" "apt_minimal" || true
-    PHASE_APT_FALLBACK="ok"
+    if install_apt_from_yaml "$PKGS_YAML_FILE" "apt_minimal"; then
+      PHASE_APT_FALLBACK="ok"
+    else
+      PHASE_APT_FALLBACK="warn"
+      warn "Apt fallback install reported errors; continuing with brew-first flow."
+    fi
   else
     PHASE_APT_FALLBACK="skipped"
   fi
@@ -912,11 +916,21 @@ fi
 
 # Inference tools are explicitly opt-in.
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
+  inference_failed=0
   PHASE_INFERENCE="in_progress"
   info "🤖 Installing optional inference tools..."
-  run_remote_install_script "ollama" "https://ollama.ai/install.sh" || true
-  run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh" || true
-  PHASE_INFERENCE="ok"
+  if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
+    inference_failed=1
+  fi
+  if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
+    inference_failed=1
+  fi
+  if [[ "$inference_failed" -eq 0 ]]; then
+    PHASE_INFERENCE="ok"
+  else
+    PHASE_INFERENCE="warn"
+    warn "One or more optional inference tool installs failed."
+  fi
 else
   PHASE_INFERENCE="skipped"
 fi

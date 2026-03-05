@@ -24,8 +24,8 @@ jobs:
 
       - name: Run release validation tests
         run: |
-          bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
-          shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh
+          bash -n install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
+          shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
           ./test/check-no-root-config-duplicates.sh
           ./install.sh --help >/dev/null
           ./bootstrap.sh --help >/dev/null

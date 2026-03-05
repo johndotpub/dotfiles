@@ -7,6 +7,9 @@ set -euo pipefail
 #  3) --override creates .bak.<timestamp> backups before replacement.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=test/lib/test-shims.sh
+source "${SCRIPT_DIR}/lib/test-shims.sh"
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
@@ -15,96 +18,8 @@ HOME_DIR="${TMP_DIR}/home"
 FAKE_BIN="${TMP_DIR}/bin"
 mkdir -p "$HOME_DIR" "$FAKE_BIN"
 
-# Shim external tools for deterministic, offline test behavior.
-cat > "${FAKE_BIN}/brew" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cmd="${1:-}"
-case "$cmd" in
-  shellenv)
-    cat <<'OUT'
-export HOMEBREW_PREFIX=/tmp/fakebrew
-export HOMEBREW_CELLAR=/tmp/fakebrew/Cellar
-export HOMEBREW_REPOSITORY=/tmp/fakebrew/Homebrew
-export PATH=/tmp/fakebrew/bin:$PATH
-OUT
-    ;;
-  install)
-    exit 0
-    ;;
-  --version)
-    echo "Homebrew 4.4.0"
-    ;;
-  *)
-    exit 0
-    ;;
-esac
-EOF
-chmod +x "${FAKE_BIN}/brew"
-
-# Starship shim supports the exact preset command used by installer.
-cat > "${FAKE_BIN}/starship" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" == "--version" ]]; then
-  echo "starship 1.0.0-test"
-  exit 0
-fi
-if [[ "${1:-}" == "preset" && "${2:-}" == "tokyo-night" && "${3:-}" == "-o" ]]; then
-  target="${4:-}"
-  mkdir -p "$(dirname "$target")"
-  printf '%s\n' '# tokyo-night preset test config' > "$target"
-  exit 0
-fi
-if [[ "${1:-}" == "preset" && "${2:-}" == "--help" ]]; then
-  echo "starship preset help"
-  exit 0
-fi
-echo "starship 1.0.0-test"
-EOF
-chmod +x "${FAKE_BIN}/starship"
-
-# pyenv shim keeps version probes predictable.
-cat > "${FAKE_BIN}/pyenv" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-cmd="${1:-}"
-case "$cmd" in
-  versions)
-    exit 0
-    ;;
-  --version)
-    echo "pyenv 2.4.0-test"
-    ;;
-  *)
-    exit 0
-    ;;
-esac
-EOF
-chmod +x "${FAKE_BIN}/pyenv"
-
-# git/make shims support nanorc clone + install path.
-cat > "${FAKE_BIN}/git" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-if [[ "${1:-}" == "clone" ]]; then
-  target="${@: -1}"
-  mkdir -p "$target"
-  cat > "${target}/Makefile" <<'OUT'
-install:
-	@echo "nanorc install"
-OUT
-  exit 0
-fi
-exit 0
-EOF
-chmod +x "${FAKE_BIN}/git"
-
-cat > "${FAKE_BIN}/make" <<'EOF'
-#!/usr/bin/env bash
-exit 0
-EOF
-chmod +x "${FAKE_BIN}/make"
+# Shared shims cover brew/starship/pyenv/git/make behavior.
+setup_common_fake_bin "$FAKE_BIN"
 
 # Seed user-managed files that should be preserved by default.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
