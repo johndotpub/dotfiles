@@ -14,6 +14,7 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 - 🧩 Default skel profile deployment
 - 🌃 Starship Tokyo Night preset by default
 - 📝 Nano syntax highlighting via nanorc
+- 🧱 tmux via Homebrew + oh-my-tmux base config
 - 🤖 Optional inference tools (`--install-inference`: ollama + llmfit)
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
@@ -68,6 +69,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 └── skel/
     └── default/
         ├── .zshrc
+        ├── .tmux.conf.local
         ├── .gitconfig
         ├── .ssh/config
         └── .config/starship.toml
@@ -120,6 +122,7 @@ Verify deterministic archive output:
 
 `packages/packages.yaml` is the single source of truth for package lists
 (`brew` and `apt_minimal` sections).
+The default brew set includes core tools like `tmux`, `ripgrep`, `fzf`, and `fd`.
 
 ## 🤖 Agentic/Copilot standards
 

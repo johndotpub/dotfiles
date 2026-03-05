@@ -758,6 +758,45 @@ configure_starship_prompt() {
   warn "starship config not written (no preset command and no fallback file)."
 }
 
+configure_oh_my_tmux() {
+  # oh-my-tmux provides sane tmux defaults while ~/.tmux.conf.local remains
+  # the user-customizable override file that we ship via skel/default.
+  local tmux_dir="${HOME}/.tmux"
+  local tmux_conf="${HOME}/.tmux.conf"
+  local tmux_repo="https://github.com/gpakosz/.tmux.git"
+  local tmux_main_conf="${tmux_dir}/.tmux.conf"
+
+  info "🧱 Ensuring oh-my-tmux configuration..."
+
+  if [[ ! -d "$tmux_dir" ]]; then
+    if ! run git clone --depth 1 "$tmux_repo" "$tmux_dir"; then
+      warn "Could not clone oh-my-tmux; keeping existing tmux setup."
+      return 1
+    fi
+  else
+    info "↪️  Keeping existing ${tmux_dir}"
+  fi
+
+  if [[ ! -f "$tmux_main_conf" ]]; then
+    warn "oh-my-tmux clone is missing ${tmux_main_conf}; skipping tmux.conf symlink."
+    return 1
+  fi
+
+  if [[ -e "$tmux_conf" || -L "$tmux_conf" ]]; then
+    if [[ "$OVERRIDE" -eq 1 ]]; then
+      backup_path "$tmux_conf"
+      run ln -s "$tmux_main_conf" "$tmux_conf"
+      ok "Linked ${tmux_conf} -> ${tmux_main_conf}"
+    else
+      info "↪️  Keeping existing ${tmux_conf}"
+    fi
+    return 0
+  fi
+
+  run ln -s "$tmux_main_conf" "$tmux_conf"
+  ok "Linked ${tmux_conf} -> ${tmux_main_conf}"
+}
+
 configure_nano_syntax() {
   # nanorc setup is intentionally conservative:
   # - existing ~/.nanorc is left untouched by default
@@ -848,6 +887,12 @@ print_checks() {
     printf '🟢 nano: %s\n' "$(nano --version 2>/dev/null | awk 'NR==1{print $0}')"
   else
     printf '🟡 nano: not found (optional)\n'
+  fi
+
+  if command -v tmux >/dev/null 2>&1; then
+    printf '🟢 tmux: %s\n' "$(tmux -V 2>/dev/null || echo 'available')"
+  else
+    printf '🟡 tmux: not found (optional)\n'
   fi
 }
 
@@ -964,6 +1009,7 @@ fi
 # official preset command path; skel merge then preserves existing config.
 PHASE_CONFIG="in_progress"
 configure_starship_prompt
+configure_oh_my_tmux || true
 deploy_skel_profile "$SKEL_PROFILE"
 configure_nano_syntax
 

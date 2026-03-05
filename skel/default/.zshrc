@@ -17,7 +17,7 @@ HISTSIZE=-1
 HISTFILESIZE=-1
 HISTCONTROL=ignoreboth
 
-plugins=(git pyenv)
+plugins=(git pyenv python pip tmux)
 # Useful default plugins that align with installed tooling/flows.
 if [[ -d "$ZSH/plugins/fzf" ]]; then
   plugins+=(fzf)
