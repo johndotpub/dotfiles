@@ -68,6 +68,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── test-skel-merge-behavior.sh
 │   ├── test-ssh-config-migration.sh
 │   ├── test-inference-opt-in.sh
+│   ├── test-nanorc-optional-failure.sh
 │   ├── verify-release-reproducible.sh
 │   └── installer.bats
 └── skel/
@@ -92,7 +93,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 - `--host <host>` (advanced optional profile name; most users can ignore this)
 - `--pyver <ver>`
 - `--create-home-pyver`
-- `--install-inference`
+- `--install-inference` (use with `-y` for non-interactive runs)
 - `--dry-run`
 - `--override` (`--force` alias)
 - `--brew-only`
@@ -162,6 +163,7 @@ GitHub Actions runs a CI workflow that checks:
 - installer lock contention behavior (`test/test-install-lock.sh`)
 - report JSON validity/escaping checks (`test/test-report-json.sh`)
 - inference installer opt-in behavior (`test/test-inference-opt-in.sh`)
+- optional nanorc clone failure handling (`test/test-nanorc-optional-failure.sh`)
 - DRY BATS installer suite (`test/installer.bats`) running all integration checks
 - release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
 

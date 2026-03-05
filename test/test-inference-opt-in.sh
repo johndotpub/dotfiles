@@ -57,6 +57,11 @@ run_install() {
     "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag inference-test "$@" >/dev/null
 }
 
+run_install_no_yes() {
+  HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" INFERENCE_MARKER="$MARKER" \
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --tag inference-test "$@" >/dev/null
+}
+
 # Default path: no inference scripts should run.
 run_install
 if [[ -f "$MARKER" ]] && [[ -s "$MARKER" ]]; then
@@ -79,5 +84,14 @@ fi
 
 grep -Fq "https://ollama.ai/install.sh" "$MARKER"
 grep -Fq "https://llmfit.axjns.dev/install.sh" "$MARKER"
+
+# Non-interactive + --install-inference without -y should skip remote scripts.
+before_count="$line_count"
+run_install_no_yes --install-inference
+after_count="$(wc -l < "$MARKER" | tr -d '[:space:]')"
+if [[ "$before_count" -ne "$after_count" ]]; then
+  echo "Inference installers should be skipped in non-interactive mode without --yes." >&2
+  exit 1
+fi
 
 echo "Inference opt-in behavior checks passed."

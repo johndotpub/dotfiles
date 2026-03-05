@@ -853,8 +853,12 @@ configure_nano_syntax() {
 
   info "📝 Ensuring nano syntax highlighting..."
   if [[ ! -d "$nano_dir" ]]; then
-    run git clone --depth 1 "$nanorc_repo" "$nano_dir"
-    cloned=1
+    if run git clone --depth 1 "$nanorc_repo" "$nano_dir"; then
+      cloned=1
+    else
+      warn "Could not clone nanorc repository; skipping nano syntax setup."
+      return 0
+    fi
   else
     info "↪️  Keeping existing ${nano_dir}"
   fi
@@ -1019,16 +1023,35 @@ fi
 # Inference tools are explicitly opt-in.
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
   inference_failed=0
+  run_inference=1
   PHASE_INFERENCE="in_progress"
   info "🤖 Installing optional inference tools..."
-  # User-approved exception: inference installers are intentionally unpinned
-  # because upstream scripts evolve frequently.
-  if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
+  warn "Inference installers are remote scripts from third-party domains."
+  warn "Only run these tools when you explicitly trust upstream sources."
+
+  # Require explicit acknowledgement in interactive shells unless --yes is used.
+  if [[ "$ASSUME_YES" -eq 0 ]]; then
+    if [[ ! -t 0 ]]; then
+      warn "Non-interactive shell detected; skipping inference installers unless -y/--yes is provided."
+      run_inference=0
+    else
+      confirm_or_die "Proceed with optional remote inference installers (ollama, llmfit)?"
+    fi
+  fi
+
+  # User-approved policy exception: inference installers are intentionally unpinned
+  # because upstream scripts evolve frequently in these projects.
+  if [[ "$run_inference" -eq 1 ]]; then
+    if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
+      inference_failed=1
+    fi
+    if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
+      inference_failed=1
+    fi
+  else
     inference_failed=1
   fi
-  if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
-    inference_failed=1
-  fi
+
   if [[ "$inference_failed" -eq 0 ]]; then
     PHASE_INFERENCE="ok"
   else

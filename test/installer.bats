@@ -56,3 +56,8 @@ setup() {
   run bash "${REPO_DIR}/test/test-inference-opt-in.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "nanorc optional failure script passes" {
+  run bash "${REPO_DIR}/test/test-nanorc-optional-failure.sh"
+  [ "$status" -eq 0 ]
+}
