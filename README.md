@@ -1,4 +1,4 @@
-# ✨ dotfiles (brew-first bootstrap)
+# ✨A brew-first and zsh-focused toolkit
 
 [![Version](https://img.shields.io/badge/version-v1.0.0-7aa2f7?style=flat-square)](https://github.com/johndotpub/.skel/releases/tag/v1.0.0) [![Release](https://img.shields.io/github/v/release/johndotpub/.skel?style=flat-square)](https://github.com/johndotpub/.skel/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/.skel/ci.yml?branch=master&style=flat-square&label=CI)](https://github.com/johndotpub/.skel/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
 [![Shell Zsh](https://img.shields.io/badge/shell-zsh-89e051?style=flat-square)](https://www.zsh.org/) [![Framework Oh My Zsh](https://img.shields.io/badge/framework-Oh%20My%20Zsh-4fd1c5?style=flat-square)](https://ohmyz.sh/) [![Prompt Starship](https://img.shields.io/badge/prompt-starship-7aa2f7?style=flat-square)](https://starship.rs/) [![Python Pyenv](https://img.shields.io/badge/python-pyenv-3776ab?style=flat-square)](https://github.com/pyenv/pyenv)  
