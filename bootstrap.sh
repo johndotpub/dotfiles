@@ -10,7 +10,7 @@ set -euo pipefail
 # Usage:
 #   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
 
-REPO="johndotpub/.skel"
+REPO="johndotpub/dotfiles"
 
 # Runtime flags forwarded to install.sh.
 TAG=""
@@ -110,15 +110,17 @@ fi
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
-ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
+ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
-SHA_URL="${TARBALL_URL}.sha256"
-SHA_SIG_URL="${SHA_URL}.asc"
 
 cd "$TMPDIR"
 echo "📥 Downloading release tarball..."
 curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"
+
+SHA_URL="${TARBALL_URL}.sha256"
+SHA_SIG_URL="${SHA_URL}.asc"
+echo "📥 Downloaded: ${ASSET_BASENAME}"
 
 echo "📥 Downloading checksum..."
 curl -fsSLo "${ASSET_BASENAME}.sha256" -L "${SHA_URL}"
