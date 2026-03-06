@@ -1004,9 +1004,9 @@ trap on_exit EXIT
 # non-fatal (the keepalive loop is simply not started).
 if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 ]]; then
   if "$SUDO_BIN" -v; then
-    # Refresh sudo timestamp every 50 seconds in the background for script lifetime.
-    # No || true here: if credentials expire the subshell exits cleanly on its own.
-    ( while true; do "$SUDO_BIN" -n true 2>/dev/null; sleep 50; done ) &
+    # Refresh sudo timestamp roughly every 50 seconds in the background for script lifetime.
+    # Use a builtin timed wait instead of an external sleep to avoid orphaned sleep processes.
+    ( while true; do "$SUDO_BIN" -n true 2>/dev/null; read -r -t 50 _ || true; done ) &
     SUDO_KEEPALIVE_PID=$!
   fi
 fi
