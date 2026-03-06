@@ -62,6 +62,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "shell templates: brew bootstrap compatibility" {
+  run bash "${REPO_DIR}/test/shell-templates.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "brew env: all scenarios" {
   run bash "${REPO_DIR}/test/brew-env.sh"
   [ "$status" -eq 0 ]

@@ -1,11 +1,8 @@
-# Path to your Oh My Zsh installation.
-export ZSH="$HOME/.oh-my-zsh"
+#!/usr/bin/env bash
 
 # Path setup
 export PATH="$HOME/.local/bin:$PATH"
 export PATH="$HOME/.npm-global/bin:$PATH"
-
-ZSH_THEME="robbyrussell"
 
 # Homebrew environment
 brew_candidates=(
@@ -43,26 +40,14 @@ if [[ "$brew_env_initialized" -eq 0 ]]; then
 fi
 unset brew_bin brew_candidates brew_env_output brew_env_initialized
 
-HIST_STAMPS="yyyy-mm-dd"
-HISTSIZE=-1
-HISTFILESIZE=-1
-HISTCONTROL=ignoreboth
-
-plugins=(git pyenv python pip tmux)
-# Useful default plugins that align with installed tooling/flows.
-if [[ -d "$ZSH/plugins/fzf" ]]; then
-  plugins+=(fzf)
+# Prefer zsh for interactive terminals unless the user opts out.
+if [[ $- == *i* ]] && [[ -z "${ZSH_VERSION:-}" ]] && [[ -z "${DOTFILES_KEEP_BASH:-}" ]]; then
+  if command -v zsh >/dev/null 2>&1; then
+    exec zsh -l
+  fi
 fi
-if [[ -d "$ZSH/plugins/sudo" ]]; then
-  plugins+=(sudo)
-fi
-if [[ -d "$ZSH" ]]; then
-  source "$ZSH/oh-my-zsh.sh"
-fi
-
-export LANG="en_US.UTF-8"
 
 # STARSHIP
 if command -v starship >/dev/null 2>&1; then
-  eval "$(starship init zsh)"
+  eval "$(starship init bash)"
 fi
