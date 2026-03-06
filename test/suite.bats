@@ -8,81 +8,81 @@ setup() {
 }
 
 @test "repo root configs: no duplicates" {
-  run bash "${REPO_DIR}/test/check-no-root-config-duplicates.sh"
+  run bash "${REPO_DIR}/test/root-configs.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "installer: idempotency" {
-  run bash "${REPO_DIR}/test/test-installer-idempotency.sh"
+  run bash "${REPO_DIR}/test/installer-idempotency.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "installer: backup collisions" {
-  run bash "${REPO_DIR}/test/test-backup-collision.sh"
+  run bash "${REPO_DIR}/test/backup-collision.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "skel: merge behavior" {
-  run bash "${REPO_DIR}/test/test-skel-merge-behavior.sh"
+  run bash "${REPO_DIR}/test/skel-merge.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "ssh: config migration" {
-  run bash "${REPO_DIR}/test/test-ssh-config-migration.sh"
+  run bash "${REPO_DIR}/test/ssh-config-migration.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "tmux: oh-my-tmux behavior" {
-  run bash "${REPO_DIR}/test/test-oh-my-tmux.sh"
+  run bash "${REPO_DIR}/test/tmux-oh-my.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "installer: lock handling" {
-  run bash "${REPO_DIR}/test/test-install-lock.sh"
+  run bash "${REPO_DIR}/test/installer-lock.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "report: json output" {
-  run bash "${REPO_DIR}/test/test-report-json.sh"
+  run bash "${REPO_DIR}/test/report-json.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "release: reproducible archive" {
-  run bash "${REPO_DIR}/test/verify-release-reproducible.sh" "${RELEASE_TAG:-v0.0.0-test}"
+  run bash "${REPO_DIR}/test/release-reproducible.sh" "${RELEASE_TAG:-v0.0.0-test}"
   [ "$status" -eq 0 ]
 }
 
 @test "inference: opt-in behavior" {
-  run bash "${REPO_DIR}/test/test-inference-opt-in.sh"
+  run bash "${REPO_DIR}/test/inference-opt-in.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "nano: optional clone failure" {
-  run bash "${REPO_DIR}/test/test-nanorc-optional-failure.sh"
+  run bash "${REPO_DIR}/test/nanorc-optional-failure.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: HOMEBREW_PREFIX path" {
-  run bash "${REPO_DIR}/test/test-brew-env-linux-prefix.sh"
+  run bash "${REPO_DIR}/test/brew-env-linux-prefix.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: shell function" {
-  run bash "${REPO_DIR}/test/test-brew-env-shell-function.sh"
+  run bash "${REPO_DIR}/test/brew-env-shell-function.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: function shellenv failure" {
-  run bash "${REPO_DIR}/test/test-brew-env-shellenv-failure-function.sh"
+  run bash "${REPO_DIR}/test/brew-env-shellenv-failure-function.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: binary shellenv failure" {
-  run bash "${REPO_DIR}/test/test-brew-env-shellenv-failure-binary.sh"
+  run bash "${REPO_DIR}/test/brew-env-shellenv-failure-binary.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "bootstrap e2e: curl PR payload" {
-  run bash "${REPO_DIR}/test/test-bootstrap-e2e-curl-pr-commit.sh"
+  run bash "${REPO_DIR}/test/bootstrap-e2e-curl-pr-commit.sh"
   [ "$status" -eq 0 ]
 }

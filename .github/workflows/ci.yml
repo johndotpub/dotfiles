@@ -42,4 +42,4 @@ jobs:
         run: ./install.sh --dry-run --no-apt --brew-only --yes --verbose >/dev/null
 
       - name: BATS installer suite
-        run: bats test/installer.bats
+        run: bats test/suite.bats

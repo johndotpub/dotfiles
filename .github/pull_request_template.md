@@ -18,7 +18,7 @@
 - [ ] `./install.sh --help`
 - [ ] `./bootstrap.sh --help`
 - [ ] `./install.sh --dry-run --no-apt --brew-only --yes --verbose`
-- [ ] `bats test/installer.bats`
+- [ ] `bats test/suite.bats`
 
 ## 📚 Docs / Changelog
 

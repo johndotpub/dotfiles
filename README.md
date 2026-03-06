@@ -58,19 +58,19 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── setup-starship.sh
 │   └── post-install-checks.sh
 ├── test/
-│   ├── check-no-root-config-duplicates.sh
+│   ├── root-configs.sh
 │   ├── lib/test-shims.sh
-│   ├── test-backup-collision.sh
-│   ├── test-install-lock.sh
-│   ├── test-installer-idempotency.sh
-│   ├── test-oh-my-tmux.sh
-│   ├── test-report-json.sh
-│   ├── test-skel-merge-behavior.sh
-│   ├── test-ssh-config-migration.sh
-│   ├── test-inference-opt-in.sh
-│   ├── test-nanorc-optional-failure.sh
-│   ├── verify-release-reproducible.sh
-│   └── installer.bats
+│   ├── backup-collision.sh
+│   ├── installer-lock.sh
+│   ├── installer-idempotency.sh
+│   ├── tmux-oh-my.sh
+│   ├── report-json.sh
+│   ├── skel-merge.sh
+│   ├── ssh-config-migration.sh
+│   ├── inference-opt-in.sh
+│   ├── nanorc-optional-failure.sh
+│   ├── release-reproducible.sh
+│   └── suite.bats
 └── skel/
     └── default/
         ├── .zshrc
@@ -121,7 +121,7 @@ tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner \
 Verify deterministic archive output:
 
 ```bash
-./test/verify-release-reproducible.sh "$TAG"
+./test/release-reproducible.sh "$TAG"
 ```
 
 > On macOS, install GNU tar first for deterministic-archive verification:
@@ -158,14 +158,14 @@ GitHub Actions runs a CI workflow that checks:
 - installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
-- SSH config include migration behavior (`test/test-ssh-config-migration.sh`)
-- oh-my-tmux bootstrap/preserve/override behavior (`test/test-oh-my-tmux.sh`)
-- installer lock contention behavior (`test/test-install-lock.sh`)
-- report JSON validity/escaping checks (`test/test-report-json.sh`)
-- inference installer opt-in behavior (`test/test-inference-opt-in.sh`)
-- optional nanorc clone failure handling (`test/test-nanorc-optional-failure.sh`)
-- DRY BATS installer suite (`test/installer.bats`) running all integration checks
-- release reproducibility verification (`test/verify-release-reproducible.sh`, tag workflow)
+- SSH config include migration behavior (`test/ssh-config-migration.sh`)
+- oh-my-tmux bootstrap/preserve/override behavior (`test/tmux-oh-my.sh`)
+- installer lock contention behavior (`test/installer-lock.sh`)
+- report JSON validity/escaping checks (`test/report-json.sh`)
+- inference installer opt-in behavior (`test/inference-opt-in.sh`)
+- optional nanorc clone failure handling (`test/nanorc-optional-failure.sh`)
+- DRY BATS installer suite (`test/suite.bats`) running all integration checks
+- release reproducibility verification (`test/release-reproducible.sh`, tag workflow)
 
 ## 📝 Changelog
 
