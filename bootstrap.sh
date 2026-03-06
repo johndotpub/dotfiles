@@ -17,6 +17,9 @@ TAG=""
 HOST=""
 PYVER=""
 ASSUME_YES=0
+NO_APT=0
+BREW_ONLY=0
+DRY_RUN=0
 # Optional signer pin for checksum signature verification.
 # When set, verification fails unless the signature matches this fingerprint.
 EXPECTED_GPG_FINGERPRINT="${BOOTSTRAP_GPG_FINGERPRINT:-}"
@@ -82,7 +85,7 @@ verify_checksum() {
 usage() {
   local code="${1:-1}"
   cat <<EOF
-Usage: bootstrap.sh --tag <tag> [--host <host>] [--pyver <ver>] [-y]
+Usage: bootstrap.sh --tag <tag> [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run]
 Example:
   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
 EOF
@@ -96,6 +99,9 @@ while [[ $# -gt 0 ]]; do
     --host) HOST="$2"; shift 2 ;;
     --pyver) PYVER="$2"; shift 2 ;;
     -y|--yes) ASSUME_YES=1; shift ;;
+    --no-apt) NO_APT=1; shift ;;
+    --brew-only) BREW_ONLY=1; shift ;;
+    --dry-run) DRY_RUN=1; shift ;;
     -h|--help) usage 0 ;;
     *) echo "Unknown arg: $1"; usage 1 ;;
   esac
@@ -111,6 +117,11 @@ fi
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
+# Test/advanced override for integration environments that need bootstrap to
+# fetch artifacts from a non-GitHub release base URL.
+if [[ -n "${BOOTSTRAP_RELEASE_BASE:-}" ]]; then
+  RELEASE_BASE="${BOOTSTRAP_RELEASE_BASE}"
+fi
 ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
 
@@ -179,6 +190,15 @@ if [[ -n "$PYVER" ]]; then
 fi
 if [[ "$ASSUME_YES" -eq 1 ]]; then
   install_args+=(-y)
+fi
+if [[ "$NO_APT" -eq 1 ]]; then
+  install_args+=(--no-apt)
+fi
+if [[ "$BREW_ONLY" -eq 1 ]]; then
+  install_args+=(--brew-only)
+fi
+if [[ "$DRY_RUN" -eq 1 ]]; then
+  install_args+=(--dry-run)
 fi
 
 # Execute installer from the verified release payload.

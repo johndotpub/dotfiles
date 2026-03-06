@@ -34,7 +34,7 @@ jobs:
           shellcheck -x install.sh bootstrap.sh scripts/*.sh scripts/lib/*.sh test/*.sh test/lib/*.sh
           ./install.sh --help >/dev/null
           ./bootstrap.sh --help >/dev/null
-          RELEASE_TAG="${GITHUB_REF_NAME}" bats test/installer.bats
+          RELEASE_TAG="${GITHUB_REF_NAME}" bats test/suite.bats
 
       - name: Create tarball + checksum
         run: |
