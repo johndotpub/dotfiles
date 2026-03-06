@@ -6,12 +6,15 @@
 setup_brew_env() {
   local brew_bin=""
   local candidate=""
+  local shellenv_output=""
 
   # `brew` may be a function/alias in interactive shells. If it is callable,
   # prefer that first so we inherit the user's active brew context.
   if command -v brew >/dev/null 2>&1; then
-    if eval "$(brew shellenv)"; then
-      return 0
+    if shellenv_output="$(brew shellenv)"; then
+      if eval "$shellenv_output"; then
+        return 0
+      fi
     fi
   fi
 
@@ -33,8 +36,11 @@ setup_brew_env() {
   fi
 
   if [ -n "$brew_bin" ] && [ -x "$brew_bin" ]; then
-    eval "$("$brew_bin" shellenv)"
-    return 0
+    if shellenv_output="$("$brew_bin" shellenv)"; then
+      if eval "$shellenv_output"; then
+        return 0
+      fi
+    fi
   fi
   return 1
 }

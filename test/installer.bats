@@ -71,3 +71,13 @@ setup() {
   run bash "${REPO_DIR}/test/test-brew-env-shell-function.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "brew env helper fails when brew function shellenv fails" {
+  run bash "${REPO_DIR}/test/test-brew-env-shellenv-failure-function.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "brew env helper fails when brew binary shellenv fails" {
+  run bash "${REPO_DIR}/test/test-brew-env-shellenv-failure-binary.sh"
+  [ "$status" -eq 0 ]
+}
