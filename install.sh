@@ -1159,7 +1159,14 @@ if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   fi
 fi
 
+PHASE_CONFIG="ok"
+
+PHASE_CHECKS="in_progress"
+print_checks
+PHASE_CHECKS="ok"
+
 # Offer shell switch only when current shell is not zsh.
+# Placed after print_checks so any warning about chsh is the final emitted line.
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   zsh_bin="$(command -v zsh)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -1194,9 +1201,4 @@ if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
     fi
   fi
 fi
-PHASE_CONFIG="ok"
-
-PHASE_CHECKS="in_progress"
-print_checks
-PHASE_CHECKS="ok"
 ok "Install script finished."
