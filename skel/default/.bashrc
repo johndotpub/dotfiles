@@ -15,17 +15,30 @@ if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
   brew_candidates=("${HOMEBREW_PREFIX}/bin/brew" "${brew_candidates[@]}")
 fi
 
+brew_env_initialized=0
+brew_env_output=""
+
 if command -v brew >/dev/null 2>&1; then
-  eval "$(brew shellenv)"
-else
+  if brew_env_output="$(brew shellenv 2>/dev/null)"; then
+    if eval "$brew_env_output"; then
+      brew_env_initialized=1
+    fi
+  fi
+fi
+
+if [[ "$brew_env_initialized" -eq 0 ]]; then
   for brew_bin in "${brew_candidates[@]}"; do
     if [[ -x "$brew_bin" ]]; then
-      eval "$("$brew_bin" shellenv)"
-      break
+      if brew_env_output="$("$brew_bin" shellenv 2>/dev/null)"; then
+        if eval "$brew_env_output"; then
+          brew_env_initialized=1
+          break
+        fi
+      fi
     fi
   done
 fi
-unset brew_bin brew_candidates
+unset brew_bin brew_candidates brew_env_output brew_env_initialized
 
 # Prefer zsh for interactive terminals unless the user opts out.
 if [[ $- == *i* ]] && [[ -z "${ZSH_VERSION:-}" ]] && [[ -z "${DOTFILES_KEEP_BASH:-}" ]]; then

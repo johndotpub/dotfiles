@@ -83,9 +83,44 @@ if [[ "$resolved_brew" != "${TMP_DIR}/prefix/bin/brew" ]]; then
   exit 1
 fi
 
-# Ensure zsh template also carries explicit fallback search logic.
-if ! grep -q 'HOMEBREW_PREFIX' "${REPO_DIR}/skel/default/.zshrc"; then
-  echo "Expected skel/default/.zshrc to include HOMEBREW_PREFIX fallback." >&2
+# Simulate a login where brew exists in PATH but shellenv fails there, and
+# fallback probing should recover via HOMEBREW_PREFIX candidate.
+bad_bin="${TMP_DIR}/badbin"
+mkdir -p "$bad_bin"
+cat > "${bad_bin}/brew" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "shellenv" ]]; then
+  exit 1
+fi
+exit 1
+EOF
+chmod +x "${bad_bin}/brew"
+
+resolved_brew_with_bad_path="$(
+  HOME="$HOME_DIR" \
+  PATH="${bad_bin}:/usr/bin:/bin" \
+  HOMEBREW_PREFIX="${TMP_DIR}/prefix" \
+  bash -c 'source "$HOME/.bashrc"; command -v brew'
+)"
+
+if [[ "$resolved_brew_with_bad_path" != "${TMP_DIR}/prefix/bin/brew" ]]; then
+  echo "Expected ~/.bashrc fallback probing when PATH brew shellenv fails." >&2
+  exit 1
+fi
+
+# Ensure zsh template carries the same robust fallback structure.
+if ! grep -q 'brew_candidates=(' "${REPO_DIR}/skel/default/.zshrc"; then
+  echo "Expected skel/default/.zshrc to include brew candidate probing." >&2
+  exit 1
+fi
+if ! grep -q 'brew_env_initialized=0' "${REPO_DIR}/skel/default/.zshrc"; then
+  echo "Expected skel/default/.zshrc to track brew init success state." >&2
+  exit 1
+fi
+expected_loop="for brew_bin in \"\${brew_candidates[@]}\""
+if ! grep -Fq "$expected_loop" "${REPO_DIR}/skel/default/.zshrc"; then
+  echo "Expected skel/default/.zshrc fallback loop over brew candidates." >&2
   exit 1
 fi
 
