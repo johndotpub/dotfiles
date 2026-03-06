@@ -1117,13 +1117,24 @@ fi
 
 # Offer shell switch only when current shell is not zsh.
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
-  if [[ ! -t 0 ]]; then
-    info "Non-interactive shell detected; skipping automatic 'chsh -s zsh'. Run it manually if desired."
-  else
-    if [[ "$ASSUME_YES" -eq 0 ]]; then
-      confirm_or_die "Change default shell to zsh?"
+  zsh_bin="$(command -v zsh)"
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: chsh -s %q\n' "$zsh_bin"
+  elif [[ ! -t 0 ]] || [[ "$ASSUME_YES" -eq 1 ]]; then
+    # Non-interactive bootstrap installs should still converge to zsh-first
+    # behavior without requiring manual post-install prompts.
+    if chsh -s "$zsh_bin" "$(id -un)" </dev/null >/dev/null 2>&1; then
+      ok "Updated default shell to zsh (${zsh_bin})."
+    else
+      warn "Could not auto-set default shell to zsh. Run: chsh -s ${zsh_bin}"
     fi
-    run chsh -s "$(command -v zsh)" || true
+  else
+    confirm_or_die "Change default shell to zsh?"
+    if run chsh -s "$zsh_bin"; then
+      ok "Updated default shell to zsh (${zsh_bin})."
+    else
+      warn "Could not set default shell to zsh automatically."
+    fi
   fi
 fi
 PHASE_CONFIG="ok"

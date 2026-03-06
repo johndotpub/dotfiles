@@ -27,6 +27,13 @@ else
 fi
 unset brew_bin brew_candidates
 
+# Prefer zsh for interactive terminals unless the user opts out.
+if [[ $- == *i* ]] && [[ -z "${ZSH_VERSION:-}" ]] && [[ -z "${DOTFILES_KEEP_BASH:-}" ]]; then
+  if command -v zsh >/dev/null 2>&1; then
+    exec zsh -l
+  fi
+fi
+
 # STARSHIP
 if command -v starship >/dev/null 2>&1; then
   eval "$(starship init bash)"
