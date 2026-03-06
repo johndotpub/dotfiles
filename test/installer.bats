@@ -81,3 +81,8 @@ setup() {
   run bash "${REPO_DIR}/test/test-brew-env-shellenv-failure-binary.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "bootstrap curl E2E installs active PR payload" {
+  run bash "${REPO_DIR}/test/test-bootstrap-e2e-curl-pr-commit.sh"
+  [ "$status" -eq 0 ]
+}
