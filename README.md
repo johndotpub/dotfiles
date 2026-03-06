@@ -1,3 +1,6 @@
+---
+layout: default
+---
 # ✨A brew-first and zsh-focused toolkit
 
 [![Version](https://img.shields.io/badge/version-v1.0.2-7aa2f7?style=flat-square)](https://github.com/johndotpub/dotfiles/releases/tag/v1.0.2) [![Release](https://img.shields.io/github/v/release/johndotpub/dotfiles?style=flat-square)](https://github.com/johndotpub/dotfiles/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/dotfiles/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/johndotpub/dotfiles/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
