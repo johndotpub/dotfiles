@@ -813,8 +813,8 @@ configure_oh_my_tmux() {
 
 migrate_ssh_config_include_local() {
   # Migration behavior for existing user SSH config:
-  # - if ~/.ssh/config exists and ~/.ssh/config.local does not,
-  #   move current config to config.local and seed managed config include file.
+  # - if ~/.ssh/config exists, create a sanitized copy as ~/.ssh/config.local and
+  #   then remove the original ~/.ssh/config before seeding the managed include wrapper.
   # - if ~/.ssh/config.local already exists, back it up before writing migrated content.
   # - self-referencing include lines are sanitized from migrated content to prevent
   #   recursive Include loops on rerun.
