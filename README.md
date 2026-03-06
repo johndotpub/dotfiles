@@ -1,6 +1,6 @@
 # ✨A brew-first and zsh-focused toolkit
 
-[![Version](https://img.shields.io/badge/version-v1.0.0-7aa2f7?style=flat-square)](https://github.com/johndotpub/.skel/releases/tag/v1.0.0) [![Release](https://img.shields.io/github/v/release/johndotpub/.skel?style=flat-square)](https://github.com/johndotpub/.skel/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/.skel/ci.yml?branch=master&style=flat-square&label=CI)](https://github.com/johndotpub/.skel/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
+[![Version](https://img.shields.io/badge/version-v1.0.1-7aa2f7?style=flat-square)](https://github.com/johndotpub/dotfiles/releases/tag/v1.0.1) [![Release](https://img.shields.io/github/v/release/johndotpub/dotfiles?style=flat-square)](https://github.com/johndotpub/dotfiles/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/dotfiles/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/johndotpub/dotfiles/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
 [![Shell Zsh](https://img.shields.io/badge/shell-zsh-89e051?style=flat-square)](https://www.zsh.org/) [![Framework Oh My Zsh](https://img.shields.io/badge/framework-Oh%20My%20Zsh-4fd1c5?style=flat-square)](https://ohmyz.sh/) [![Prompt Starship](https://img.shields.io/badge/prompt-starship-7aa2f7?style=flat-square)](https://starship.rs/) [![Python Pyenv](https://img.shields.io/badge/python-pyenv-3776ab?style=flat-square)](https://github.com/pyenv/pyenv)  
 [![Editor Nano](https://img.shields.io/badge/editor-nano-4a90e2?style=flat-square)](https://www.nano-editor.org/) [![Lint ShellCheck](https://img.shields.io/badge/lint-shellcheck-ffd43b?style=flat-square)](https://www.shellcheck.net/) [![Package Manager Homebrew](https://img.shields.io/badge/package%20manager-Homebrew-fbb040?style=flat-square)](https://brew.sh/) [![Platform Linux/WSL](https://img.shields.io/badge/platform-Linux%20%7C%20WSL-1793d1?style=flat-square)](https://learn.microsoft.com/windows/wsl/)
 
@@ -62,10 +62,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── lib/test-shims.sh
 │   ├── backup-collision.sh
 │   ├── bootstrap-e2e-readme.sh
-│   ├── brew-env-prefix.sh
-│   ├── brew-env-fn.sh
-│   ├── brew-env-fn-fail.sh
-│   ├── brew-env-bin-fail.sh
+│   ├── brew-env.sh
 │   ├── installer-lock.sh
 │   ├── installer-idempotency.sh
 │   ├── tmux-oh-my.sh
@@ -169,6 +166,7 @@ GitHub Actions runs a CI workflow that checks:
 - report JSON validity/escaping checks (`test/report-json.sh`)
 - inference installer opt-in behavior (`test/inference-opt-in.sh`)
 - optional nanorc clone failure handling (`test/nanorc-optional-failure.sh`)
+- brew environment resolution scenarios (`test/brew-env.sh`)
 - bootstrap end-to-end README curl flow (`test/bootstrap-e2e-readme.sh`)
 - DRY BATS installer suite (`test/suite.bats`) running all integration checks
 - release reproducibility verification (`test/release-reproducible.sh`, tag workflow)

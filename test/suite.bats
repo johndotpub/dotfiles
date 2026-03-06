@@ -62,23 +62,8 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "brew env: HOMEBREW_PREFIX path" {
-  run bash "${REPO_DIR}/test/brew-env-prefix.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "brew env: shell function" {
-  run bash "${REPO_DIR}/test/brew-env-fn.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "brew env: function shellenv failure" {
-  run bash "${REPO_DIR}/test/brew-env-fn-fail.sh"
-  [ "$status" -eq 0 ]
-}
-
-@test "brew env: binary shellenv failure" {
-  run bash "${REPO_DIR}/test/brew-env-bin-fail.sh"
+@test "brew env: all scenarios" {
+  run bash "${REPO_DIR}/test/brew-env.sh"
   [ "$status" -eq 0 ]
 }
 

@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.2] 🛠️
+
+### Fixed ✅
+- 🍺 Homebrew bootstrap initialization now reliably resolves Linuxbrew/macOS paths after installer bootstrap.
+- 🧪 `setup_brew_env` now treats failed `brew shellenv` calls as real failures (no false-positive success on `eval`).
+
+### Changed 🔄
+- 🧰 Consolidated brew env coverage into one DRY scenario suite (`test/brew-env.sh`) instead of multiple near-duplicate scripts.
+- 🗂️ Standardized test filenames to concise, consistent names and switched the BATS entrypoint to `test/suite.bats`.
+- 🌐 Reworked bootstrap E2E coverage to mirror README curl usage (`curl .../bootstrap.sh | bash -s -- --tag ...`) against the active PR payload in CI.
+- ⚙️ CI trigger behavior now avoids duplicate branch runs by limiting push-triggered CI to `main` while PR validation runs on `pull_request`.
+
 ## [v1.0.0] 🎉
 
 ### Added ✨
