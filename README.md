@@ -39,8 +39,15 @@ When `--override` modifies an existing config, a `.bak.<date>` backup is created
 ## 🌐 Quick start (Pages bootstrap)
 
 ```bash
+# Latest main branch — one-liner, no version required:
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash
+
+# Pinned to a specific release (recommended for reproducible installs):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.4
 ```
+
+> **Note:** The tagless form downloads the current `main` branch directly. It skips checksum
+> verification and may include unreleased changes. Use `--tag` for a verified, reproducible install.
 
 ## 🗂️ Project layout
 

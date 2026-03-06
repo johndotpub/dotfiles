@@ -116,3 +116,27 @@ setup_common_fake_bin() {
   write_git_shim "$fake_bin"
   write_make_shim "$fake_bin"
 }
+
+# Portable mktemp wrapper: works on Linux and macOS.
+make_tmp_dir() {
+  mktemp -d 2>/dev/null || mktemp -d -t dotfiles-test 2>/dev/null || \
+    mktemp -d "${TMPDIR:-/tmp}/dotfiles-test.XXXXXX"
+}
+
+# Sudo shim that handles flag-only invocations used by install.sh.
+# sudo -v  → exit 0 (credential warmup, no-op in tests)
+# sudo -n  → strip flag and exec remaining args
+# sudo <cmd> → exec the command directly
+write_sudo_shim() {
+  local fake_bin="$1"
+  cat > "${fake_bin}/sudo" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  -v) exit 0 ;;
+  -n) shift; exec "$@" ;;
+  *) exec "$@" ;;
+esac
+EOF
+  chmod +x "${fake_bin}/sudo"
+}

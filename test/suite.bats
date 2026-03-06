@@ -76,3 +76,8 @@ setup() {
   run bash "${REPO_DIR}/test/bootstrap-e2e.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "bootstrap: main branch fallback (no --tag)" {
+  run bash "${REPO_DIR}/test/bootstrap-main-fallback.sh"
+  [ "$status" -eq 0 ]
+}
