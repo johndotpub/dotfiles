@@ -39,7 +39,7 @@ When `--override` modifies an existing config, a `.bak.<date>` backup is created
 ## 🌐 Quick start (Pages bootstrap)
 
 ```bash
-curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.3
 ```
 
 ## 🗂️ Project layout
