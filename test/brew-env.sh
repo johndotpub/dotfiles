@@ -13,6 +13,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
+# Keep each scenario self-contained so shell functions/env from prior runs do not
+# leak and hide regressions.
+reset_brew_context() {
+  if declare -F brew >/dev/null 2>&1; then
+    unset -f brew
+  fi
+  unset HOMEBREW_PREFIX || true
+}
+
 # Cross-platform temp directory helper (GNU + BSD mktemp variants).
 mktemp_dir() {
   mktemp -d 2>/dev/null || mktemp -d -t dotfiles-brew-env 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/dotfiles-brew-env.XXXXXX"
@@ -61,6 +70,7 @@ assert_path_contains() {
 # Scenario: resolve brew via HOMEBREW_PREFIX binary path.
 scenario_prefix_binary() {
   local tmp_dir fake_prefix fake_brew
+  reset_brew_context
   tmp_dir="$(mktemp_dir)"
   TMP_DIRS+=("$tmp_dir")
 
@@ -81,6 +91,7 @@ scenario_prefix_binary() {
 # Scenario: resolve brew via shell function implementation.
 scenario_shell_function() {
   local tmp_dir fake_prefix
+  reset_brew_context
   tmp_dir="$(mktemp_dir)"
   TMP_DIRS+=("$tmp_dir")
   fake_prefix="${tmp_dir}/brew-fn"
@@ -110,6 +121,7 @@ OUT
 # Scenario: shell function fails and explicit prefix binary fails -> overall fail.
 scenario_shell_function_failure() {
   local tmp_dir fake_prefix fake_brew
+  reset_brew_context
   tmp_dir="$(mktemp_dir)"
   TMP_DIRS+=("$tmp_dir")
 
@@ -135,6 +147,7 @@ scenario_shell_function_failure() {
 # Scenario: explicit HOMEBREW_PREFIX binary fails -> overall fail.
 scenario_binary_failure() {
   local tmp_dir fake_prefix fake_brew
+  reset_brew_context
   tmp_dir="$(mktemp_dir)"
   TMP_DIRS+=("$tmp_dir")
 
