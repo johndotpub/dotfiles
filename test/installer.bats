@@ -61,3 +61,8 @@ setup() {
   run bash "${REPO_DIR}/test/test-nanorc-optional-failure.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "brew env helper resolves HOMEBREW_PREFIX path" {
+  run bash "${REPO_DIR}/test/test-brew-env-linux-prefix.sh"
+  [ "$status" -eq 0 ]
+}

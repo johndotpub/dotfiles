@@ -49,6 +49,8 @@ SKEL_DIR="${REPO_DIR}/skel"
 PKG_DIR="${REPO_DIR}/packages"
 INVENTORY_DIR="${REPO_DIR}/inventory"
 SKEL_PROFILE="default"
+# shellcheck source=scripts/lib/brew-env.sh
+source "${REPO_DIR}/scripts/lib/brew-env.sh"
 
 timestamp() {
   if [[ -n "${DOTFILES_TEST_TIMESTAMP:-}" ]]; then
@@ -612,24 +614,7 @@ merge_dir_without_overwrite() {
 }
 
 ensure_brew_shellenv() {
-  # Brew may already be in PATH (preferred). The explicit fallbacks handle
-  # standard macOS locations when PATH has not yet been updated in this shell.
-  if command -v brew >/dev/null 2>&1; then
-    # shellcheck disable=SC2046
-    eval "$(brew shellenv)"
-    return 0
-  fi
-  if [[ -x "/opt/homebrew/bin/brew" ]]; then
-    # shellcheck disable=SC2046
-    eval "$(/opt/homebrew/bin/brew shellenv)"
-    return 0
-  fi
-  if [[ -x "/usr/local/bin/brew" ]]; then
-    # shellcheck disable=SC2046
-    eval "$(/usr/local/bin/brew shellenv)"
-    return 0
-  fi
-  return 1
+  setup_brew_env
 }
 
 install_brew_if_missing() {
