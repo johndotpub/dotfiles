@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Cross-platform temp directory helper (GNU + BSD mktemp variants).
 mktemp_dir() {
   mktemp -d 2>/dev/null || mktemp -d -t dotfiles-brew-fn 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/dotfiles-brew-fn.XXXXXX"
 }
@@ -20,7 +21,8 @@ mkdir -p "${fake_prefix}/bin"
 # shellcheck source=scripts/lib/brew-env.sh
 source "${REPO_DIR}/scripts/lib/brew-env.sh"
 
-# Simulate environments where brew is a shell function (command -v returns "brew").
+# Simulate environments where brew is a shell function (`command -v brew`
+# returns "brew" rather than an executable path).
 brew() {
   if [[ "${1:-}" == "shellenv" ]]; then
     cat <<OUT

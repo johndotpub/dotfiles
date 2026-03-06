@@ -613,12 +613,9 @@ merge_dir_without_overwrite() {
   fi
 }
 
-ensure_brew_shellenv() {
-  setup_brew_env
-}
-
 install_brew_if_missing() {
-  if ensure_brew_shellenv; then
+  # Reuse shared helper so brew path resolution stays centralized.
+  if setup_brew_env; then
     ok "Homebrew is available."
     return 0
   fi
@@ -639,7 +636,7 @@ install_brew_if_missing() {
     debug "Dry-run mode: skipping post-install brew shellenv verification"
     return 0
   fi
-  ensure_brew_shellenv || {
+  setup_brew_env || {
     err "Failed to initialize Homebrew after install."
     exit 1
   }

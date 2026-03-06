@@ -7,12 +7,15 @@ setup_brew_env() {
   local brew_bin=""
   local candidate=""
 
+  # `brew` may be a function/alias in interactive shells. If it is callable,
+  # prefer that first so we inherit the user's active brew context.
   if command -v brew >/dev/null 2>&1; then
     if eval "$(brew shellenv)"; then
       return 0
     fi
   fi
 
+  # Fall back to explicit binaries for fresh/non-interactive environments.
   if [ -n "${HOMEBREW_PREFIX:-}" ] && [ -x "${HOMEBREW_PREFIX}/bin/brew" ]; then
     brew_bin="${HOMEBREW_PREFIX}/bin/brew"
   else

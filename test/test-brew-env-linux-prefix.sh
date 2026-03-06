@@ -4,6 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
+# Cross-platform temp directory helper (GNU + BSD mktemp variants).
 mktemp_dir() {
   mktemp -d 2>/dev/null || mktemp -d -t dotfiles-brew-env 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/dotfiles-brew-env.XXXXXX"
 }
@@ -18,6 +19,7 @@ fake_prefix="${tmp_dir}/homebrew"
 fake_bin="${fake_prefix}/bin"
 mkdir -p "$fake_bin"
 
+# Shim a brew binary under HOMEBREW_PREFIX that only supports `shellenv`.
 cat > "${fake_bin}/brew" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
@@ -32,6 +34,7 @@ OUT
 EOF
 chmod +x "${fake_bin}/brew"
 
+# Keep PATH clean so setup_brew_env must resolve via HOMEBREW_PREFIX.
 export PATH="/usr/bin:/bin"
 export HOMEBREW_PREFIX="${fake_prefix}"
 
