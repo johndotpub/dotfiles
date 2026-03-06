@@ -2,6 +2,32 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.4] 🔐
+
+### Fixed ✅
+- 🔐 SSH config migration now backs up any pre-existing `~/.ssh/config.local` before writing migrated content, preventing silent clobbering.
+- 🔐 SSH migration sanitizes self-referencing `Include ~/.ssh/config.local` and its preceding comment from migrated content to prevent recursive include loops on rerun.
+- 🔐 SSH migration uses an idempotency guard (presence of `Include ~/.ssh/config.local` in `~/.ssh/config`) instead of only checking for `config.local` existence, preventing repeated re-migration on reruns.
+- 🐚 Shell change flow now registers the Homebrew-installed zsh path in `/etc/shells` via `sudo` before calling `chsh`, ensuring `chsh` accepts the path on Linux.
+- 🐚 Shell change `warn` and help output is now emitted near the end of script output (after the install summary), improving output readability.
+- 🔒 `sudo -n` flag is now applied to the `tee -a /etc/shells` call, not only to the guard check, closing a TOCTOU window that could prompt interactively on some systems.
+- 🌐 Bootstrap tagless warning now shows `--tag <release-tag>` instead of a hardcoded version, preventing a stale hint after every release.
+- 🧪 Portable test: `test/bootstrap-main-fallback.sh` now uses a staging-directory approach instead of GNU-only `tar --transform`, fixing CI on macOS (`bsdtar`).
+- 📝 SSH config migration comment updated to accurately describe the create-sanitized-copy-then-remove-original behavior.
+
+### Changed 🔄
+- 🔒 `sudo -v` warmup is performed immediately after the installer starts so interactive sudo prompts appear upfront rather than mid-run.
+- 🔒 A background `sudo` keepalive loop is spawned for the script lifetime and cleaned up on exit via trap, removing the need for password re-entry on long installs.
+- 🔒 Sudo keepalive loop now uses `read -r -t 50` (shell builtin timed wait) instead of `sleep 50`, avoiding orphaned background processes after the keepalive subshell is killed.
+- 📦 README version references updated to `v1.0.4` (badge from `v1.0.2`, bootstrap example from `v1.0.3`).
+
+### Tests ✅
+- 🧪 New `test/backup-semantics.sh` closes the only gap in backup coverage: `backup_copy` (used by nanorc `--override`) was never exercised.
+  - Asserts `backup_path` move semantics: original moved to `.bak.<ts>`, skel replacement deployed, original content preserved in backup.
+  - Asserts `backup_copy` keep-in-place semantics: original file stays at its path, `.bak.<ts>` copy is also created, include line is appended.
+  - Uses `DOTFILES_TEST_TIMESTAMP` to freeze time for deterministic backup filenames.
+- 🧪 Removed duplicate test body from `test/bootstrap-main-fallback.sh` that ran the full bootstrap flow twice.
+
 ## [v1.0.2] 🛠️
 
 ### Fixed ✅

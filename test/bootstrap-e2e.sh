@@ -6,11 +6,7 @@ REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # shellcheck source=test/lib/test-shims.sh
 source "${SCRIPT_DIR}/lib/test-shims.sh"
 
-mktemp_dir() {
-  mktemp -d 2>/dev/null || mktemp -d -t dotfiles-bootstrap-e2e 2>/dev/null || mktemp -d "${TMPDIR:-/tmp}/dotfiles-bootstrap-e2e.XXXXXX"
-}
-
-tmp_dir="$(mktemp_dir)"
+tmp_dir="$(make_tmp_dir)"
 cleanup() {
   if [[ -n "${server_pid:-}" ]]; then
     kill "${server_pid}" >/dev/null 2>&1 || true
@@ -28,12 +24,7 @@ setup_common_fake_bin "$fake_bin"
 
 # Keep apt/sudo operations fully sandboxed in CI while still exercising the
 # default installer flow (README invocation uses only --tag).
-cat > "${fake_bin}/sudo" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-exec "$@"
-EOF
-chmod +x "${fake_bin}/sudo"
+write_sudo_shim "$fake_bin"
 
 cat > "${fake_bin}/apt-get" <<'EOF'
 #!/usr/bin/env bash

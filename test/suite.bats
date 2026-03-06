@@ -22,6 +22,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "installer: backup semantics" {
+  run bash "${REPO_DIR}/test/backup-semantics.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "skel: merge behavior" {
   run bash "${REPO_DIR}/test/skel-merge.sh"
   [ "$status" -eq 0 ]
@@ -74,5 +79,10 @@ setup() {
 
 @test "bootstrap e2e: readme curl flow" {
   run bash "${REPO_DIR}/test/bootstrap-e2e.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "bootstrap: main branch fallback (no --tag)" {
+  run bash "${REPO_DIR}/test/bootstrap-main-fallback.sh"
   [ "$status" -eq 0 ]
 }

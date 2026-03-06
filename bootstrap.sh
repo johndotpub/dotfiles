@@ -2,13 +2,16 @@
 set -euo pipefail
 
 # Tiny bootstrap script:
-# - Downloads a release tarball
-# - Verifies SHA256 checksum
-# - Optionally verifies GPG signature for the checksum file
+# - Downloads a release tarball (or the main branch archive when --tag is omitted)
+# - Verifies SHA256 checksum (release path only; skipped for main branch)
+# - Optionally verifies GPG signature for the checksum file (release path only)
 # - Executes install.sh from extracted archive
 #
-# Usage:
+# Usage (pinned release — recommended):
 #   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
+#
+# Usage (latest main branch — unverified, convenience only):
+#   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash
 
 REPO="johndotpub/dotfiles"
 
@@ -85,9 +88,17 @@ verify_checksum() {
 usage() {
   local code="${1:-1}"
   cat <<EOF
-Usage: bootstrap.sh --tag <tag> [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run]
-Example:
+Usage: bootstrap.sh [--tag <tag>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run]
+
+  --tag <tag>  (optional) Download a specific release tag.  Omit to install
+               the latest main branch directly (no checksum verification).
+
+Examples:
+  # Pinned release (recommended — checksum-verified):
   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
+
+  # Latest main branch (unverified — convenience):
+  curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash
 EOF
   exit "$code"
 }
@@ -107,15 +118,58 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Bootstrap always requires a release tag so downloaded assets are explicit.
-if [[ -z "$TAG" ]]; then
-  echo "❌ Error: --tag is required"
-  usage 1
-fi
-
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
+
+cd "$TMPDIR"
+
+# When --tag is omitted fall back to downloading the latest main branch archive.
+# This path skips checksum and GPG verification because GitHub branch archives
+# do not ship a .sha256 file; the user is warned before anything is executed.
+if [[ -z "$TAG" ]]; then
+  # Override URL for integration tests; defaults to the GitHub archive endpoint.
+  MAIN_URL="${BOOTSTRAP_MAIN_URL:-https://github.com/${REPO}/archive/refs/heads/main.tar.gz}"
+  ASSET_BASENAME="${REPO##*/}-main.tar.gz"
+
+  echo "⚠️  No --tag provided: installing latest main branch (unverified)."
+  echo "ℹ️  For a checksum-verified install, use: --tag <release-tag>"
+  echo "📥 Downloading main branch archive..."
+  curl -fsSLo "${ASSET_BASENAME}" -L "${MAIN_URL}"
+
+  echo "📦 Extracting main branch archive..."
+  mkdir -p repo
+  tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
+  cd repo
+  chmod +x install.sh
+
+  echo "🚀 Running installer..."
+  install_args=(--from-release)
+  if [[ -n "$HOST" ]]; then
+    install_args+=(--host "$HOST")
+  fi
+  if [[ -n "$PYVER" ]]; then
+    install_args+=(--pyver "$PYVER")
+  fi
+  if [[ "$ASSUME_YES" -eq 1 ]]; then
+    install_args+=(-y)
+  fi
+  if [[ "$NO_APT" -eq 1 ]]; then
+    install_args+=(--no-apt)
+  fi
+  if [[ "$BREW_ONLY" -eq 1 ]]; then
+    install_args+=(--brew-only)
+  fi
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    install_args+=(--dry-run)
+  fi
+
+  ./install.sh "${install_args[@]}"
+  echo "✅ Bootstrap complete."
+  exit 0
+fi
+
+# Tagged release path: full download + SHA256 + optional GPG verification.
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
 # Test/advanced override for integration environments that need bootstrap to
 # fetch artifacts from a non-GitHub release base URL.
@@ -125,7 +179,6 @@ fi
 ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
 
-cd "$TMPDIR"
 echo "📥 Downloading release tarball..."
 curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"
 
