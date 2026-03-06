@@ -10,7 +10,7 @@ set -euo pipefail
 # Usage:
 #   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
 
-REPO="johndotpub/.skel"
+REPO="johndotpub/dotfiles"
 
 # Runtime flags forwarded to install.sh.
 TAG=""
@@ -111,37 +111,12 @@ fi
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
-RAW_REPO_NAME="${REPO##*/}"
-NORMALIZED_REPO_NAME="${RAW_REPO_NAME#.}"
-if [[ -z "$NORMALIZED_REPO_NAME" ]]; then
-  NORMALIZED_REPO_NAME="repo"
-fi
-ASSET_BASENAME="${NORMALIZED_REPO_NAME}-${TAG}.tar.gz"
+ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
 TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
 
 cd "$TMPDIR"
 echo "📥 Downloading release tarball..."
-if ! curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"; then
-  # Backward compatibility for v1.0.0 where hidden asset names were
-  # rewritten to `default.<repo>-<tag>.tar.gz` by release tooling.
-  if [[ "${RAW_REPO_NAME}" == .* ]]; then
-    LEGACY_ASSET_BASENAME="default${RAW_REPO_NAME}-${TAG}.tar.gz"
-    LEGACY_TARBALL_URL="${RELEASE_BASE}/${LEGACY_ASSET_BASENAME}"
-    if curl -fsSLo "${LEGACY_ASSET_BASENAME}" -L "${LEGACY_TARBALL_URL}"; then
-      ASSET_BASENAME="${LEGACY_ASSET_BASENAME}"
-      TARBALL_URL="${LEGACY_TARBALL_URL}"
-    else
-      echo "❌ Unable to download release tarball for tag ${TAG}."
-      echo "Tried:"
-      echo "  - ${RELEASE_BASE}/${NORMALIZED_REPO_NAME}-${TAG}.tar.gz"
-      echo "  - ${RELEASE_BASE}/default${RAW_REPO_NAME}-${TAG}.tar.gz"
-      exit 1
-    fi
-  else
-    echo "❌ Unable to download release tarball for tag ${TAG}: ${TARBALL_URL}"
-    exit 1
-  fi
-fi
+curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"
 
 SHA_URL="${TARBALL_URL}.sha256"
 SHA_SIG_URL="${SHA_URL}.asc"
