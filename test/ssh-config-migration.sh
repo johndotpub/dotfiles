@@ -9,6 +9,7 @@ set -euo pipefail
 # 3) Existing config.local without config gets managed include wrapper copied in.
 # 4) Self-referencing Include lines are sanitized from migrated config.local content.
 # 5) Rerun is idempotent (managed include wrapper already present guard).
+# 6) Config consisting only of self-include/comment lines leaves no config.local.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -134,5 +135,25 @@ if compgen -G "${HOME_FIVE}/.ssh/config.local.bak.*" >/dev/null; then
 fi
 # config.local should be unchanged.
 grep -Fq "Host myhost" "${HOME_FIVE}/.ssh/config.local"
+
+# Scenario 6: config contains ONLY the self-referencing include/comment lines;
+# after sanitization the result is empty — installer must not abort and must not
+# create an empty config.local (regression guard for set -eo pipefail + grep -v).
+HOME_SIX="${TMP_DIR}/home-six"
+mkdir -p "${HOME_SIX}/.ssh"
+cat > "${HOME_SIX}/.ssh/config" <<'EOF'
+# Load user-specific hosts/overrides from local-only file.
+Include ~/.ssh/config.local
+EOF
+
+run_install_for_home "$HOME_SIX"
+
+# config.local must NOT be created when there is nothing meaningful to migrate.
+if [[ -f "${HOME_SIX}/.ssh/config.local" ]]; then
+  echo "Empty config.local was unexpectedly created for whitespace-only migrated content."
+  exit 1
+fi
+# The managed include wrapper should still be seeded at ~/.ssh/config.
+grep -Fq "Include ~/.ssh/config.local" "${HOME_SIX}/.ssh/config"
 
 echo "SSH include migration checks passed."

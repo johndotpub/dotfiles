@@ -9,12 +9,12 @@ All notable changes to this project are documented here.
 - 🔐 SSH migration sanitizes self-referencing `Include ~/.ssh/config.local` and its preceding comment from migrated content to prevent recursive include loops on rerun.
 - 🔐 SSH migration uses an idempotency guard (presence of `Include ~/.ssh/config.local` in `~/.ssh/config`) instead of only checking for `config.local` existence, preventing repeated re-migration on reruns.
 - 🐚 Shell change flow now registers the Homebrew-installed zsh path in `/etc/shells` via `sudo` before calling `chsh`, ensuring `chsh` accepts the path on Linux.
-- 🐚 Shell change `warn` and help output is now always the final emitted line when it appears, improving output readability.
+- 🐚 Shell change `warn` and help output is now emitted near the end of script output (after the install summary), improving output readability.
 
 ### Changed 🔄
 - 🔒 `sudo -v` warmup is performed immediately after the installer starts so interactive sudo prompts appear upfront rather than mid-run.
 - 🔒 A background `sudo` keepalive loop is spawned for the script lifetime and cleaned up on exit via trap, removing the need for password re-entry on long installs.
-- 📦 Version references updated from `v1.0.2` to `v1.0.4` in README badge and bootstrap example.
+- 📦 README version references updated to `v1.0.4` (badge from `v1.0.2`, bootstrap example from `v1.0.3`).
 
 ## [v1.0.2] 🛠️
 

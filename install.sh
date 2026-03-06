@@ -853,12 +853,16 @@ migrate_ssh_config_include_local() {
     printf '🧪 DRY: migrate %q -> %q (sanitized)\n' "$ssh_cfg" "$ssh_local_cfg"
   else
     local migrated_content
+    # Use || true so that when grep excludes every line (empty result under
+    # set -eo pipefail) the command substitution succeeds rather than aborting.
     migrated_content="$(
       grep -vF '# Load user-specific hosts/overrides from local-only file.' "$ssh_cfg" \
-        | grep -vF 'Include ~/.ssh/config.local'
+        | grep -vF 'Include ~/.ssh/config.local' \
+        || true
     )"
     # Only create config.local when there is meaningful content to migrate.
-    if [[ -n "${migrated_content// /}" ]]; then
+    # Check against all whitespace (spaces, newlines, tabs) not just spaces.
+    if [[ "$migrated_content" =~ [^[:space:]] ]]; then
       printf '%s\n' "$migrated_content" > "$ssh_local_cfg"
       run chmod 600 "$ssh_local_cfg"
     else
@@ -995,11 +999,16 @@ trap on_exit EXIT
 # Warm up sudo credentials once early so interactive prompts happen up front,
 # and spawn a background keepalive loop to prevent sudo from expiring mid-run.
 # This avoids password piping or storing credentials in variables.
-if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 ]]; then
-  sudo -v
-  # Refresh sudo timestamp every 50 seconds in the background for script lifetime.
-  ( while true; do sudo -n true; sleep 50; done ) &
-  SUDO_KEEPALIVE_PID=$!
+# Only gate on apt-enabled (non-brew-only) flows to avoid unnecessary prompts
+# in --no-apt or --brew-only runs; warmup is best-effort so auth failure is
+# non-fatal (the keepalive loop is simply not started).
+if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 ]]; then
+  if "$SUDO_BIN" -v; then
+    # Refresh sudo timestamp every 50 seconds in the background for script lifetime.
+    # No || true here: if credentials expire the subshell exits cleanly on its own.
+    ( while true; do "$SUDO_BIN" -n true 2>/dev/null; sleep 50; done ) &
+    SUDO_KEEPALIVE_PID=$!
+  fi
 fi
 
 info "🚀 Starting dotfiles install..."
@@ -1175,8 +1184,10 @@ if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   else
     # Register the resolved zsh path in /etc/shells when missing so chsh accepts it.
     # This is required when using the Homebrew-installed zsh on Linux.
+    # Use sudo -n (non-interactive) so this remains non-fatal in unattended/no-sudo runs,
+    # and use $SUDO_BIN to stay consistent with the rest of the script.
     if [[ -n "$SUDO_BIN" ]] && ! grep -qxF "$zsh_bin" /etc/shells 2>/dev/null; then
-      if printf '%s\n' "$zsh_bin" | $SUDO_BIN tee -a /etc/shells >/dev/null; then
+      if "$SUDO_BIN" -n true 2>/dev/null && printf '%s\n' "$zsh_bin" | "$SUDO_BIN" tee -a /etc/shells >/dev/null; then
         ok "Registered ${zsh_bin} in /etc/shells."
       else
         warn "Could not register ${zsh_bin} in /etc/shells; chsh may fail."
