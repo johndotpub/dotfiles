@@ -1175,7 +1175,8 @@ print_checks
 PHASE_CHECKS="ok"
 
 # Offer shell switch only when current shell is not zsh.
-# Placed after print_checks so any warning about chsh is the final emitted line.
+# Placed after print_checks so any warning about chsh appears near the end of the output,
+# just before the final summary line.
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   zsh_bin="$(command -v zsh)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
