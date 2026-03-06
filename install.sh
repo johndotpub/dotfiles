@@ -815,6 +815,9 @@ migrate_ssh_config_include_local() {
   # Migration behavior for existing user SSH config:
   # - if ~/.ssh/config exists and ~/.ssh/config.local does not,
   #   move current config to config.local and seed managed config include file.
+  # - if ~/.ssh/config.local already exists, back it up before writing migrated content.
+  # - self-referencing include lines are sanitized from migrated content to prevent
+  #   recursive Include loops on rerun.
   local ssh_dir="${HOME}/.ssh"
   local ssh_cfg="${ssh_dir}/config"
   local ssh_local_cfg="${ssh_dir}/config.local"
@@ -829,13 +832,40 @@ migrate_ssh_config_include_local() {
     return 0
   fi
 
-  if [[ -e "$ssh_local_cfg" || -L "$ssh_local_cfg" ]]; then
-    debug "SSH local config already present; skipping migration."
+  # Idempotency guard: skip when config.local already exists AND config already
+  # contains the Include directive, which means a prior migration completed.
+  if [[ (-e "$ssh_local_cfg" || -L "$ssh_local_cfg") ]] \
+      && grep -qF 'Include ~/.ssh/config.local' "$ssh_cfg" 2>/dev/null; then
+    debug "SSH config migration already complete (include wrapper + config.local present); skipping."
     return 0
   fi
 
   info "🔐 Migrating existing ~/.ssh/config -> ~/.ssh/config.local"
-  run mv "$ssh_cfg" "$ssh_local_cfg"
+
+  # Back up any pre-existing config.local before overwriting it.
+  if [[ -e "$ssh_local_cfg" || -L "$ssh_local_cfg" ]]; then
+    backup_path "$ssh_local_cfg"
+  fi
+
+  # Sanitize self-referencing include lines to prevent recursive Include loops
+  # in config.local when config previously already contained an Include directive.
+  if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: migrate %q -> %q (sanitized)\n' "$ssh_cfg" "$ssh_local_cfg"
+  else
+    local migrated_content
+    migrated_content="$(
+      grep -vF '# Load user-specific hosts/overrides from local-only file.' "$ssh_cfg" \
+        | grep -vF 'Include ~/.ssh/config.local'
+    )"
+    # Only create config.local when there is meaningful content to migrate.
+    if [[ -n "${migrated_content// /}" ]]; then
+      printf '%s\n' "$migrated_content" > "$ssh_local_cfg"
+      run chmod 600 "$ssh_local_cfg"
+    else
+      debug "No meaningful content in ${ssh_cfg} after sanitization; skipping config.local creation."
+    fi
+    run rm -f "$ssh_cfg"
+  fi
 
   # Seed managed include config so existing user hosts still load via config.local.
   if [[ -f "$skel_cfg" ]]; then
@@ -952,11 +982,25 @@ print_checks() {
 
 on_exit() {
   local exit_code="$?"
+  # Kill the sudo keepalive background process when the script exits.
+  if [[ -n "${SUDO_KEEPALIVE_PID:-}" ]]; then
+    kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+  fi
   write_install_report "$exit_code" || true
   release_install_lock || true
 }
 
 trap on_exit EXIT
+
+# Warm up sudo credentials once early so interactive prompts happen up front,
+# and spawn a background keepalive loop to prevent sudo from expiring mid-run.
+# This avoids password piping or storing credentials in variables.
+if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 ]]; then
+  sudo -v
+  # Refresh sudo timestamp every 50 seconds in the background for script lifetime.
+  ( while true; do sudo -n true; sleep 50; done ) &
+  SUDO_KEEPALIVE_PID=$!
+fi
 
 info "🚀 Starting dotfiles install..."
 acquire_install_lock
@@ -1119,21 +1163,34 @@ fi
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   zsh_bin="$(command -v zsh)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
+    printf '🧪 DRY: ensure %q in /etc/shells\n' "$zsh_bin"
     printf '🧪 DRY: chsh -s %q\n' "$zsh_bin"
-  elif [[ ! -t 0 ]] || [[ "$ASSUME_YES" -eq 1 ]]; then
-    # Non-interactive bootstrap installs should still converge to zsh-first
-    # behavior without requiring manual post-install prompts.
-    if chsh -s "$zsh_bin" "$(id -un)" </dev/null >/dev/null 2>&1; then
-      ok "Updated default shell to zsh (${zsh_bin})."
-    else
-      warn "Could not auto-set default shell to zsh. Run: chsh -s ${zsh_bin}"
-    fi
   else
-    confirm_or_die "Change default shell to zsh?"
-    if run chsh -s "$zsh_bin"; then
-      ok "Updated default shell to zsh (${zsh_bin})."
+    # Register the resolved zsh path in /etc/shells when missing so chsh accepts it.
+    # This is required when using the Homebrew-installed zsh on Linux.
+    if [[ -n "$SUDO_BIN" ]] && ! grep -qxF "$zsh_bin" /etc/shells 2>/dev/null; then
+      if printf '%s\n' "$zsh_bin" | $SUDO_BIN tee -a /etc/shells >/dev/null; then
+        ok "Registered ${zsh_bin} in /etc/shells."
+      else
+        warn "Could not register ${zsh_bin} in /etc/shells; chsh may fail."
+      fi
+    fi
+
+    if [[ ! -t 0 ]] || [[ "$ASSUME_YES" -eq 1 ]]; then
+      # Non-interactive bootstrap installs should still converge to zsh-first
+      # behavior without requiring manual post-install prompts.
+      if chsh -s "$zsh_bin" "$(id -un)" </dev/null >/dev/null 2>&1; then
+        ok "Updated default shell to zsh (${zsh_bin})."
+      else
+        warn "Could not auto-set default shell to zsh. Run: chsh -s ${zsh_bin}"
+      fi
     else
-      warn "Could not set default shell to zsh automatically."
+      confirm_or_die "Change default shell to zsh?"
+      if run chsh -s "$zsh_bin"; then
+        ok "Updated default shell to zsh (${zsh_bin})."
+      else
+        warn "Could not set default shell to zsh automatically. Run: chsh -s ${zsh_bin}"
+      fi
     fi
   fi
 fi

@@ -1,6 +1,6 @@
 # ✨A brew-first and zsh-focused toolkit
 
-[![Version](https://img.shields.io/badge/version-v1.0.2-7aa2f7?style=flat-square)](https://github.com/johndotpub/dotfiles/releases/tag/v1.0.2) [![Release](https://img.shields.io/github/v/release/johndotpub/dotfiles?style=flat-square)](https://github.com/johndotpub/dotfiles/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/dotfiles/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/johndotpub/dotfiles/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
+[![Version](https://img.shields.io/badge/version-v1.0.4-7aa2f7?style=flat-square)](https://github.com/johndotpub/dotfiles/releases/tag/v1.0.4) [![Release](https://img.shields.io/github/v/release/johndotpub/dotfiles?style=flat-square)](https://github.com/johndotpub/dotfiles/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/dotfiles/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/johndotpub/dotfiles/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
 [![Shell Zsh](https://img.shields.io/badge/shell-zsh-89e051?style=flat-square)](https://www.zsh.org/) [![Framework Oh My Zsh](https://img.shields.io/badge/framework-Oh%20My%20Zsh-4fd1c5?style=flat-square)](https://ohmyz.sh/) [![Prompt Starship](https://img.shields.io/badge/prompt-starship-7aa2f7?style=flat-square)](https://starship.rs/) [![Python Pyenv](https://img.shields.io/badge/python-pyenv-3776ab?style=flat-square)](https://github.com/pyenv/pyenv)  
 [![Editor Nano](https://img.shields.io/badge/editor-nano-4a90e2?style=flat-square)](https://www.nano-editor.org/) [![Lint ShellCheck](https://img.shields.io/badge/lint-shellcheck-ffd43b?style=flat-square)](https://www.shellcheck.net/) [![Package Manager Homebrew](https://img.shields.io/badge/package%20manager-Homebrew-fbb040?style=flat-square)](https://brew.sh/) [![Platform Linux/WSL](https://img.shields.io/badge/platform-Linux%20%7C%20WSL-1793d1?style=flat-square)](https://learn.microsoft.com/windows/wsl/)
 
@@ -39,7 +39,7 @@ When `--override` modifies an existing config, a `.bak.<date>` backup is created
 ## 🌐 Quick start (Pages bootstrap)
 
 ```bash
-curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.3
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.4
 ```
 
 ## 🗂️ Project layout
