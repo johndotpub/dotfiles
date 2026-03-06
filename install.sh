@@ -1115,7 +1115,9 @@ if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   fi
 fi
 
-# Offer shell switch only when current shell is not zsh.
+# Set default shell to zsh when current shell is not zsh.
+# Auto-applies without prompting in non-interactive or --yes mode;
+# prompts for confirmation in interactive sessions.
 if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
   zsh_bin="$(command -v zsh)"
   if [[ "$DRY_RUN" -eq 1 ]]; then
