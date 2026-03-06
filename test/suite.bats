@@ -63,26 +63,26 @@ setup() {
 }
 
 @test "brew env: HOMEBREW_PREFIX path" {
-  run bash "${REPO_DIR}/test/brew-env-linux-prefix.sh"
+  run bash "${REPO_DIR}/test/brew-env-prefix.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: shell function" {
-  run bash "${REPO_DIR}/test/brew-env-shell-function.sh"
+  run bash "${REPO_DIR}/test/brew-env-fn.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: function shellenv failure" {
-  run bash "${REPO_DIR}/test/brew-env-shellenv-failure-function.sh"
+  run bash "${REPO_DIR}/test/brew-env-fn-fail.sh"
   [ "$status" -eq 0 ]
 }
 
 @test "brew env: binary shellenv failure" {
-  run bash "${REPO_DIR}/test/brew-env-shellenv-failure-binary.sh"
+  run bash "${REPO_DIR}/test/brew-env-bin-fail.sh"
   [ "$status" -eq 0 ]
 }
 
-@test "bootstrap e2e: curl PR payload" {
-  run bash "${REPO_DIR}/test/bootstrap-e2e-curl-pr-commit.sh"
+@test "bootstrap e2e: readme curl flow" {
+  run bash "${REPO_DIR}/test/bootstrap-e2e-readme.sh"
   [ "$status" -eq 0 ]
 }
