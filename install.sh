@@ -1187,7 +1187,7 @@ if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
     # Use sudo -n (non-interactive) so this remains non-fatal in unattended/no-sudo runs,
     # and use $SUDO_BIN to stay consistent with the rest of the script.
     if [[ -n "$SUDO_BIN" ]] && ! grep -qxF "$zsh_bin" /etc/shells 2>/dev/null; then
-      if "$SUDO_BIN" -n true 2>/dev/null && printf '%s\n' "$zsh_bin" | "$SUDO_BIN" tee -a /etc/shells >/dev/null; then
+      if "$SUDO_BIN" -n true 2>/dev/null && printf '%s\n' "$zsh_bin" | "$SUDO_BIN" -n tee -a /etc/shells >/dev/null; then
         ok "Registered ${zsh_bin} in /etc/shells."
       else
         warn "Could not register ${zsh_bin} in /etc/shells; chsh may fail."

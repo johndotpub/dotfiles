@@ -133,7 +133,7 @@ if [[ -z "$TAG" ]]; then
   ASSET_BASENAME="${REPO##*/}-main.tar.gz"
 
   echo "⚠️  No --tag provided: installing latest main branch (unverified)."
-  echo "ℹ️  For a checksum-verified install, use: --tag v1.0.4"
+  echo "ℹ️  For a checksum-verified install, use: --tag <release-tag>"
   echo "📥 Downloading main branch archive..."
   curl -fsSLo "${ASSET_BASENAME}" -L "${MAIN_URL}"
 
