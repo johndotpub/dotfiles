@@ -22,6 +22,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "installer: backup semantics" {
+  run bash "${REPO_DIR}/test/backup-semantics.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "skel: merge behavior" {
   run bash "${REPO_DIR}/test/skel-merge.sh"
   [ "$status" -eq 0 ]
