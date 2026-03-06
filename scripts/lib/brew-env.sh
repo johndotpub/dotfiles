@@ -8,8 +8,12 @@ setup_brew_env() {
   local candidate=""
 
   if command -v brew >/dev/null 2>&1; then
-    brew_bin="$(command -v brew)"
-  elif [ -n "${HOMEBREW_PREFIX:-}" ] && [ -x "${HOMEBREW_PREFIX}/bin/brew" ]; then
+    if eval "$(brew shellenv)"; then
+      return 0
+    fi
+  fi
+
+  if [ -n "${HOMEBREW_PREFIX:-}" ] && [ -x "${HOMEBREW_PREFIX}/bin/brew" ]; then
     brew_bin="${HOMEBREW_PREFIX}/bin/brew"
   else
     for candidate in \

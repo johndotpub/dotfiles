@@ -66,3 +66,8 @@ setup() {
   run bash "${REPO_DIR}/test/test-brew-env-linux-prefix.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "brew env helper supports brew shell function" {
+  run bash "${REPO_DIR}/test/test-brew-env-shell-function.sh"
+  [ "$status" -eq 0 ]
+}
