@@ -61,7 +61,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.0
 │   ├── root-configs.sh
 │   ├── lib/test-shims.sh
 │   ├── backup-collision.sh
-│   ├── bootstrap-e2e-readme.sh
+│   ├── bootstrap-e2e.sh
 │   ├── brew-env.sh
 │   ├── installer-lock.sh
 │   ├── installer-idempotency.sh
@@ -167,7 +167,7 @@ GitHub Actions runs a CI workflow that checks:
 - inference installer opt-in behavior (`test/inference-opt-in.sh`)
 - optional nanorc clone failure handling (`test/nanorc-optional-failure.sh`)
 - brew environment resolution scenarios (`test/brew-env.sh`)
-- bootstrap end-to-end README curl flow (`test/bootstrap-e2e-readme.sh`)
+- bootstrap end-to-end README curl flow (`test/bootstrap-e2e.sh`)
 - DRY BATS installer suite (`test/suite.bats`) running all integration checks
 - release reproducibility verification (`test/release-reproducible.sh`, tag workflow)
 

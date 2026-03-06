@@ -68,6 +68,6 @@ setup() {
 }
 
 @test "bootstrap e2e: readme curl flow" {
-  run bash "${REPO_DIR}/test/bootstrap-e2e-readme.sh"
+  run bash "${REPO_DIR}/test/bootstrap-e2e.sh"
   [ "$status" -eq 0 ]
 }
