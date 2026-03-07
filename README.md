@@ -150,9 +150,9 @@ Verify deterministic archive output:
 (`brew` and `apt_minimal` sections).
 The default brew set includes core tools like `tmux`, `ripgrep`, `fzf`, and `fd`.
 
-## 🤖 Agentic/Copilot standards
+## 🤖 Agentic standards
 
-Repository AI guidance lives in `.github/copilot-instructions.md` and includes:
+Repository AI guidance lives in [`AGENTS.md`](AGENTS.md) and includes:
 
 - DRY/minimal change expectations
 - Idempotency and safe-default requirements

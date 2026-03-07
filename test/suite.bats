@@ -22,6 +22,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "installer: backup accumulation" {
+  run bash "${REPO_DIR}/test/backup-accumulation.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "installer: backup semantics" {
   run bash "${REPO_DIR}/test/backup-semantics.sh"
   [ "$status" -eq 0 ]
