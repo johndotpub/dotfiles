@@ -2,6 +2,29 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.6] 🔀
+
+### Changed 🔄
+- 🔀 **`--tag` removed; replaced by `--ref`** in `bootstrap.sh` and `install.sh` — accepts release
+  tags, branch names, and commit SHAs.
+- 🔍 **3-way ref resolution** in `bootstrap.sh` replaces the binary tag/main-branch split:
+  1. **Branch** — HEAD probe to `refs/heads/{ref}` returns 200 → archive download, checksum skipped.
+  2. **Release tag** — HEAD probe to release asset returns 200 → full download + SHA256 + optional GPG.
+  3. **Tag archive fallback** — ref not found as branch or release → `refs/tags/{ref}` archive, checksum skipped with warning.
+  No string-shape guessing; the server decides the ref type.
+- 🔒 **Checksum policy clarified**: SHA256 + GPG verification for release tags only; branches and
+  commit SHAs emit `⚠️  Skipping checksum verification for non-release ref` and proceed.
+- 📋 **`--report-json` field renamed**: `"tag"` → `"ref"` in the JSON phase report.
+- 🌐 **`BOOTSTRAP_ARCHIVE_BASE`** env override added for integration tests (parallel to the
+  existing `BOOTSTRAP_RELEASE_BASE`), enabling fully offline ref-detection probes.
+
+### Tests ✅
+- 🧪 `bootstrap-e2e.sh`: updated to `--ref`; adds `BOOTSTRAP_ARCHIVE_BASE` for offline branch probe.
+- 🧪 `bootstrap-main-fallback.sh`: updated grep check for new `--ref` warning message.
+- 🧪 `report-json.sh`: uses `--ref`; validates `"ref"` field in JSON output.
+- 🧪 All other installer test scripts updated from `--tag` to `--ref`.
+- 🧪 New `test/bootstrap-ref-branch.sh`: asserts branch ref resolves to archive URL, skips checksum.
+- 🧪 `suite.bats`: added `bootstrap: branch ref resolves to archive` test entry; renamed main-fallback entry.
 ## [v1.0.5] 🛠️
 
 ### Fixed 🐛

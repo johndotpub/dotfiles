@@ -34,7 +34,7 @@ export SHELL="/bin/zsh"
 export DOTFILES_TEST_TIMESTAMP="20990101010101"
 
 # First run: seeds first backup (.bak.TS).
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref backup-test >/dev/null
 
 # Mutate the deployed .zshrc so it differs from skel again — the second run
 # must detect this difference and create a colliding .bak.TS name, which
@@ -44,7 +44,7 @@ printf '%s\n' '[user]' >> "${HOME_DIR}/.gitconfig"
 printf '%s\n' '  name = Test' >> "${HOME_DIR}/.gitconfig"
 
 # Second run with same frozen timestamp must suffix backup names on collision.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref backup-test >/dev/null
 
 test -f "${HOME_DIR}/.zshrc.bak.20990101010101"
 test -f "${HOME_DIR}/.zshrc.bak.20990101010101.1"

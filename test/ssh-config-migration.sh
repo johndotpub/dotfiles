@@ -28,7 +28,7 @@ run_install_for_home() {
   local home_dir="$1"
   shift
   HOME="$home_dir" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ssh-migrate "$@" >/dev/null
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref ssh-migrate "$@" >/dev/null
 }
 
 # Scenario 1: migrate config -> config.local and seed include wrapper.

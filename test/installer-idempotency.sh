@@ -37,7 +37,7 @@ export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
 # First run: default behaviour backs up existing files and deploys fresh copies.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ci-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref ci-test >/dev/null
 
 # After first run, .zshrc must have been backed up (moved to .bak.*).
 if ! compgen -G "${HOME_DIR}/.zshrc.bak.*" >/dev/null; then
@@ -68,7 +68,7 @@ test -f "${HOME_DIR}/.config/starship.toml"
 zshrc_bak_count_before="$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)"
 gitconfig_bak_count_before="$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)"
 
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ci-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref ci-test >/dev/null
 
 zshrc_bak_count_after="$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)"
 gitconfig_bak_count_after="$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)"
@@ -91,7 +91,7 @@ export PRESERVE_ME=1
 EOF
 
 HOME="$HOME_PRESERVE" PATH="${FAKE_BIN}:$PATH" SHELL="/bin/zsh" \
-  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --tag ci-test >/dev/null
+  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --ref ci-test >/dev/null
 
 # Content must be unchanged.
 if ! grep -q "PRESERVE_ME=1" "${HOME_PRESERVE}/.zshrc"; then

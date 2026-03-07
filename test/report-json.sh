@@ -23,9 +23,9 @@ export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
-# Include control characters in tag to verify escaping robustness.
+# Include control characters in ref to verify escaping robustness.
 TAG_WITH_CONTROLS=$'ci\tline\nbreak\rcarriage'
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag "$TAG_WITH_CONTROLS" --report-json "$REPORT_PATH" >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref "$TAG_WITH_CONTROLS" --report-json "$REPORT_PATH" >/dev/null
 
 if [[ ! -f "$REPORT_PATH" ]]; then
   echo "Expected report file was not written: ${REPORT_PATH}" >&2
@@ -37,12 +37,12 @@ import json
 import sys
 
 path = sys.argv[1]
-expected_tag = sys.argv[2]
+expected_ref = sys.argv[2]
 
 with open(path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-required_top = ["status", "exit_code", "tag", "host", "from_release", "dry_run", "preserve", "phase"]
+required_top = ["status", "exit_code", "ref", "host", "from_release", "dry_run", "preserve", "phase"]
 for key in required_top:
     if key not in data:
         raise SystemExit(f"missing top-level key: {key}")
@@ -51,8 +51,8 @@ if data["status"] != "success":
     raise SystemExit(f"unexpected status: {data['status']}")
 if data["exit_code"] != 0:
     raise SystemExit(f"unexpected exit_code: {data['exit_code']}")
-if data["tag"] != expected_tag:
-    raise SystemExit("tag field did not round-trip through JSON escaping")
+if data["ref"] != expected_ref:
+    raise SystemExit("ref field did not round-trip through JSON escaping")
 
 phase = data.get("phase", {})
 for key in ["lock", "preflight", "apt_baseline", "brew_bootstrap", "brew_packages", "apt_fallback", "inference", "config", "checks"]:

@@ -23,7 +23,7 @@ mkdir -p "$web_root" "$fake_bin" "$home_dir"
 setup_common_fake_bin "$fake_bin"
 
 # Keep apt/sudo operations fully sandboxed in CI while still exercising the
-# default installer flow (README invocation uses only --tag).
+# default installer flow (README invocation uses only --ref).
 write_sudo_shim "$fake_bin"
 
 cat > "${fake_bin}/apt-get" <<'EOF'
@@ -78,15 +78,16 @@ printf '%s  %s\n' "$checksum" "$asset_basename" > "$sha256_file"
 cp "${REPO_DIR}/bootstrap.sh" "${web_root}/bootstrap.sh"
 
 # Serve bootstrap and local release assets over HTTP and run the same curl|bash
-# shape recommended in README (only `--tag` argument).
+# shape recommended in README (only `--ref` argument).
 start_http_server "$web_root"
 
 curl -fsSL "http://127.0.0.1:${port}/bootstrap.sh" | \
   BOOTSTRAP_RELEASE_BASE="http://127.0.0.1:${port}/releases/download/${tag}" \
+  BOOTSTRAP_ARCHIVE_BASE="http://127.0.0.1:${port}/archive" \
   HOME="$home_dir" \
   PATH="${fake_bin}:/usr/bin:/bin" \
   SHELL="/bin/zsh" \
-  bash -s -- --tag "$tag" >/dev/null
+  bash -s -- --ref "$tag" >/dev/null
 
 if [[ ! -f "${home_dir}/.zshrc" ]]; then
   echo "E2E README curl bootstrap test did not deploy ~/.zshrc." >&2

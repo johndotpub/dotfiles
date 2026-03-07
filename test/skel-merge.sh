@@ -37,7 +37,7 @@ export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
 # Run installer against custom skel to validate merge semantics.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --skel-dir "${CUSTOM_SKEL}" --tag merge-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --skel-dir "${CUSTOM_SKEL}" --ref merge-test >/dev/null
 
 # Existing file content must remain unchanged.
 if ! grep -Fxq "from-home" "${HOME_DIR}/.config/keep.conf"; then

@@ -39,7 +39,7 @@ export SHELL="/bin/bash"
 export CHSH_LOG_FILE="${chsh_log}"
 
 # Install into an empty HOME and verify bash template is seeded.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag shell-template-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref shell-template-test >/dev/null
 
 if [[ ! -f "${HOME_DIR}/.bashrc" ]]; then
   echo "Expected ~/.bashrc template to be deployed." >&2

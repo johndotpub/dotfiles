@@ -37,7 +37,7 @@ export SHELL="/bin/zsh"
 # Freeze timestamp so any accidental backup would be easy to detect.
 export DOTFILES_TEST_TIMESTAMP="20990101010101"
 
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --tag preserve-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --ref preserve-test >/dev/null
 
 # Existing .zshrc must be unchanged.
 if ! grep -q "KEEP_ME_PRESERVE=1" "${HOME_DIR}/.zshrc"; then

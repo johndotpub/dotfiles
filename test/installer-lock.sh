@@ -51,7 +51,7 @@ rm -rf "$LOCK_DIR"
 
 (
   HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" XDG_RUNTIME_DIR="" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag lock-test-one >/dev/null 2>"${TMP_DIR}/first.err"
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref lock-test-one >/dev/null 2>"${TMP_DIR}/first.err"
 ) &
 first_pid=$!
 
@@ -71,7 +71,7 @@ fi
 
 set +e
 HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" XDG_RUNTIME_DIR="" \
-  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag lock-test-two >/dev/null 2>"${TMP_DIR}/second.err"
+  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref lock-test-two >/dev/null 2>"${TMP_DIR}/second.err"
 second_rc=$?
 set -e
 

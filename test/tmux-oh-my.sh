@@ -23,7 +23,7 @@ run_install_for_home() {
   local home_dir="$1"
   shift
   HOME="$home_dir" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag tmux-test "$@" >/dev/null
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref tmux-test "$@" >/dev/null
 }
 
 assert_no_backups() {
