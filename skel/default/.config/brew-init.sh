@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Homebrew environment initialisation — sourced by .zshrc and .bashrc.
+# Homebrew environment initialization — sourced by .zshrc and .bashrc.
 # Handles the chicken-and-egg PATH problem for Linuxbrew: brew is not on PATH
 # until shellenv is evaluated, so we probe a list of candidate locations first.
 #

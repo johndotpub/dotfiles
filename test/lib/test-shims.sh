@@ -143,6 +143,9 @@ PY
   # shellcheck disable=SC2034
   server_pid="$!"
   # Poll until the server responds (up to 20 attempts × 0.1 s = 2 s).
+  # Returns 0 unconditionally: callers tolerate a slow start and the first
+  # real HTTP request in the test body will fail fast if the server is still
+  # not ready.
   local n=0
   while [[ $n -lt 20 ]]; do
     if curl -sS "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
@@ -151,7 +154,8 @@ PY
     sleep 0.1
     n=$((n + 1))
   done
-  # Return 0 even if poll timed out — server may still be starting up.
+  # Server not yet responding after 2 s — return 0 anyway and let the test
+  # fail with a clearer curl/HTTP error if the server never comes up.
 }
 
 # Sudo shim that handles flag-only invocations used by install.sh.
