@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
-# Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
+# Usage: ./install.sh [--ref REF] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
 #
 # High-level flow:
 #   1) Parse CLI flags and resolve effective config (CLI + inventory)
@@ -23,7 +23,7 @@ DRY_RUN=0
 ASSUME_YES=0
 VERBOSE=0
 HOST=""
-TAG=""
+REF=""
 FROM_RELEASE=0
 REPORT_JSON=""
 NO_LOCK=0
@@ -137,7 +137,7 @@ Options:
   -y, --yes                  Assume yes for prompts
       --verbose              Verbose logging
       --host <host>          Optional inventory overlay: inventory/hosts/<host>.yaml
-      --tag <tag>            Release tag (informational)
+      --ref <ref>            Release tag, branch, or commit SHA (informational)
       --from-release         Informational flag set by bootstrap
       --report-json <path>   Write final install report JSON to path
       --no-lock              Disable installer lock (advanced/debug)
@@ -204,9 +204,9 @@ while [[ $# -gt 0 ]]; do
       HOST="$2"
       shift 2
       ;;
-    --tag)
-      [[ $# -ge 2 ]] || { err "--tag requires a value"; exit 1; }
-      TAG="$2"
+    --ref)
+      [[ $# -ge 2 ]] || { err "--ref requires a value"; exit 1; }
+      REF="$2"
       shift 2
       ;;
     --from-release)
@@ -251,7 +251,7 @@ done
 
 # Runtime diagnostics to make troubleshooting easier when verbose is enabled.
 debug "repo_dir=${REPO_DIR}"
-debug "tag=${TAG:-<none>}"
+debug "ref=${REF:-<none>}"
 debug "host=${HOST:-<none>}"
 debug "from_release=${FROM_RELEASE}"
 
@@ -325,7 +325,7 @@ write_install_report() {
 {
   "status": "$(json_escape "$final_status")",
   "exit_code": ${exit_code},
-  "tag": "$(json_escape "${TAG:-}")",
+  "ref": "$(json_escape "${REF:-}")",
   "host": "$(json_escape "${HOST:-}")",
   "from_release": ${FROM_RELEASE},
   "dry_run": ${DRY_RUN},

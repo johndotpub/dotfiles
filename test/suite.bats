@@ -22,6 +22,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "installer: backup accumulation" {
+  run bash "${REPO_DIR}/test/backup-accumulation.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "installer: backup semantics" {
   run bash "${REPO_DIR}/test/backup-semantics.sh"
   [ "$status" -eq 0 ]
@@ -82,8 +87,13 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "bootstrap: main branch fallback (no --tag)" {
+@test "bootstrap: main branch fallback (no --ref)" {
   run bash "${REPO_DIR}/test/bootstrap-main-fallback.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "bootstrap: branch ref resolves to archive" {
+  run bash "${REPO_DIR}/test/bootstrap-ref-branch.sh"
   [ "$status" -eq 0 ]
 }
 

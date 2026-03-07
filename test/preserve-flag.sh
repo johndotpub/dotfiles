@@ -31,13 +31,18 @@ cat > "${HOME_DIR}/.gitconfig" <<'EOF'
   editor = nano
 EOF
 
+cat > "${HOME_DIR}/.zshenv" <<'EOF'
+# user-managed zshenv — must NOT be touched by --preserve
+export KEEP_ME_PRESERVE_ZSHENV=1
+EOF
+
 export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 # Freeze timestamp so any accidental backup would be easy to detect.
 export DOTFILES_TEST_TIMESTAMP="20990101010101"
 
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --tag preserve-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --ref preserve-test >/dev/null
 
 # Existing .zshrc must be unchanged.
 if ! grep -q "KEEP_ME_PRESERVE=1" "${HOME_DIR}/.zshrc"; then
@@ -48,6 +53,12 @@ fi
 # Existing .gitconfig must be unchanged.
 if ! grep -q "editor = nano" "${HOME_DIR}/.gitconfig"; then
   echo "FAIL: .gitconfig was modified with --preserve (must be kept as-is)" >&2
+  exit 1
+fi
+
+# Existing .zshenv must be unchanged.
+if ! grep -q "KEEP_ME_PRESERVE_ZSHENV=1" "${HOME_DIR}/.zshenv"; then
+  echo "FAIL: .zshenv was modified with --preserve (must be kept as-is)" >&2
   exit 1
 fi
 

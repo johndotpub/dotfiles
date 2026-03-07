@@ -49,7 +49,7 @@ EOF
 chmod +x "${FAKE_BIN}/git"
 
 HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" \
-  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag nanorc-failure >/dev/null
+  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref nanorc-failure >/dev/null
 
 # Installer should still apply primary configs even when nanorc clone fails.
 test -f "${HOME_DIR}/.zshrc"

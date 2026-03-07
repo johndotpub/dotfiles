@@ -27,6 +27,11 @@ cat > "${HOME_DIR}/.gitconfig" <<'EOF'
   editor = vim
 EOF
 
+cat > "${HOME_DIR}/.zshenv" <<'EOF'
+# original zshenv — collision test
+export ZSHENV_ORIG=1
+EOF
+
 export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
@@ -34,21 +39,24 @@ export SHELL="/bin/zsh"
 export DOTFILES_TEST_TIMESTAMP="20990101010101"
 
 # First run: seeds first backup (.bak.TS).
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref backup-test >/dev/null
 
-# Mutate the deployed .zshrc so it differs from skel again — the second run
-# must detect this difference and create a colliding .bak.TS name, which
+# Mutate the deployed files so they differ from skel again — the second run
+# must detect the difference and create colliding .bak.TS names, which
 # next_backup_path resolves with a numeric suffix (.bak.TS.1).
 printf '%s\n' '# mutated between runs' >> "${HOME_DIR}/.zshrc"
 printf '%s\n' '[user]' >> "${HOME_DIR}/.gitconfig"
 printf '%s\n' '  name = Test' >> "${HOME_DIR}/.gitconfig"
+printf '%s\n' '# mutated between runs' >> "${HOME_DIR}/.zshenv"
 
 # Second run with same frozen timestamp must suffix backup names on collision.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref backup-test >/dev/null
 
 test -f "${HOME_DIR}/.zshrc.bak.20990101010101"
 test -f "${HOME_DIR}/.zshrc.bak.20990101010101.1"
 test -f "${HOME_DIR}/.gitconfig.bak.20990101010101"
 test -f "${HOME_DIR}/.gitconfig.bak.20990101010101.1"
+test -f "${HOME_DIR}/.zshenv.bak.20990101010101"
+test -f "${HOME_DIR}/.zshenv.bak.20990101010101.1"
 
 echo "Backup collision handling checks passed."

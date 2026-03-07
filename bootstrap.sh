@@ -2,13 +2,16 @@
 set -euo pipefail
 
 # Tiny bootstrap script:
-# - Downloads a release tarball (or the main branch archive when --tag is omitted)
-# - Verifies SHA256 checksum (release path only; skipped for main branch)
+# - Downloads a release tarball or branch archive based on --ref
+# - Verifies SHA256 checksum (release path only; skipped for branch archives and tag archive fallback)
 # - Optionally verifies GPG signature for the checksum file (release path only)
 # - Executes install.sh from extracted archive
 #
 # Usage (pinned release — recommended):
-#   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
+#   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref v1.2.3
+#
+# Usage (branch — unverified):
+#   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref my-branch
 #
 # Usage (latest main branch — unverified, convenience only):
 #   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash
@@ -16,7 +19,7 @@ set -euo pipefail
 REPO="johndotpub/dotfiles"
 
 # Runtime flags forwarded to install.sh.
-TAG=""
+REF=""
 HOST=""
 PYVER=""
 ASSUME_YES=0
@@ -94,10 +97,10 @@ verify_checksum() {
 usage() {
   local code="${1:-1}"
   cat <<EOF
-Usage: bootstrap.sh [--tag <tag>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run] [--preserve] [--verbose] [--create-home-pyver] [--install-inference] [--report-json <path>] [--no-lock]
+Usage: bootstrap.sh [--ref <ref>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run] [--preserve] [--verbose] [--create-home-pyver] [--install-inference] [--report-json <path>] [--no-lock]
 
-  --tag <tag>          (optional) Download a specific release tag.  Omit to install
-                       the latest main branch directly (no checksum verification).
+  --ref <ref>          (optional) Download a specific release tag or branch.
+                       Omit to install the latest main branch (no checksum verification).
   --preserve           Keep existing files untouched (passed through to install.sh).
   --verbose            Verbose logging (passed through to install.sh).
   --create-home-pyver  Create ~/.python-version (passed through to install.sh).
@@ -107,7 +110,10 @@ Usage: bootstrap.sh [--tag <tag>] [--host <host>] [--pyver <ver>] [-y] [--no-apt
 
 Examples:
   # Pinned release (recommended — checksum-verified):
-  curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --tag v1.2.3
+  curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref v1.2.3
+
+  # Branch (unverified):
+  curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref my-branch
 
   # Latest main branch (unverified — convenience):
   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash
@@ -118,9 +124,12 @@ EOF
 # Parse minimal bootstrap args and forward only supported installer flags.
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --tag) TAG="$2"; shift 2 ;;
-    --host) HOST="$2"; shift 2 ;;
-    --pyver) PYVER="$2"; shift 2 ;;
+    --ref) [[ $# -ge 2 ]] || { echo "--ref requires a <ref> argument"; usage 1; }
+      REF="$2"; shift 2 ;;
+    --host) [[ $# -ge 2 ]] || { echo "--host requires a <host> argument"; usage 1; }
+      HOST="$2"; shift 2 ;;
+    --pyver) [[ $# -ge 2 ]] || { echo "--pyver requires a <ver> argument"; usage 1; }
+      PYVER="$2"; shift 2 ;;
     -y|--yes) ASSUME_YES=1; shift ;;
     --no-apt) NO_APT=1; shift ;;
     --brew-only) BREW_ONLY=1; shift ;;
@@ -138,48 +147,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Append all user-supplied flags to the install_args array.
-# Called after each path initialises install_args with its own prefix
-# (--from-release for main-branch; --from-release --tag <TAG> for releases).
-# Centralised here so both paths stay in sync as new flags are added.
-build_install_args() {
-  if [[ -n "$HOST" ]]; then
-    install_args+=(--host "$HOST")
-  fi
-  if [[ -n "$PYVER" ]]; then
-    install_args+=(--pyver "$PYVER")
-  fi
-  if [[ "$ASSUME_YES" -eq 1 ]]; then
-    install_args+=(-y)
-  fi
-  if [[ "$NO_APT" -eq 1 ]]; then
-    install_args+=(--no-apt)
-  fi
-  if [[ "$BREW_ONLY" -eq 1 ]]; then
-    install_args+=(--brew-only)
-  fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    install_args+=(--dry-run)
-  fi
-  if [[ "$PRESERVE" -eq 1 ]]; then
-    install_args+=(--preserve)
-  fi
-  if [[ "$VERBOSE" -eq 1 ]]; then
-    install_args+=(--verbose)
-  fi
-  if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
-    install_args+=(--create-home-pyver)
-  fi
-  if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-    install_args+=(--install-inference)
-  fi
-  if [[ -n "$REPORT_JSON" ]]; then
-    install_args+=(--report-json "$REPORT_JSON")
-  fi
-  if [[ "$NO_LOCK" -eq 1 ]]; then
-    install_args+=(--no-lock)
-  fi
-}
+# build_install_args is sourced from scripts/lib/install-flags.sh inside the
+# extracted repository (see each download path below).  That file is the single
+# source of truth for which flags bootstrap.sh forwards to install.sh.
 
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
@@ -187,16 +157,19 @@ trap 'rm -rf "$TMPDIR"' EXIT
 
 cd "$TMPDIR"
 
-# When --tag is omitted fall back to downloading the latest main branch archive.
+# Archive base URL; can be overridden via BOOTSTRAP_ARCHIVE_BASE for testing.
+ARCHIVE_BASE="${BOOTSTRAP_ARCHIVE_BASE:-https://github.com/${REPO}/archive}"
+
+# When --ref is omitted fall back to downloading the latest main branch archive.
 # This path skips checksum and GPG verification because GitHub branch archives
 # do not ship a .sha256 file; the user is warned before anything is executed.
-if [[ -z "$TAG" ]]; then
+if [[ -z "$REF" ]]; then
   # Override URL for integration tests; defaults to the GitHub archive endpoint.
-  MAIN_URL="${BOOTSTRAP_MAIN_URL:-https://github.com/${REPO}/archive/refs/heads/main.tar.gz}"
+  MAIN_URL="${BOOTSTRAP_MAIN_URL:-${ARCHIVE_BASE}/refs/heads/main.tar.gz}"
   ASSET_BASENAME="${REPO##*/}-main.tar.gz"
 
-  echo "⚠️  No --tag provided: installing latest main branch (unverified)."
-  echo "ℹ️  For a checksum-verified install, use: --tag <release-tag>"
+  echo "⚠️  No --ref provided: installing latest main branch (unverified)."
+  echo "ℹ️  For a checksum-verified install, use: --ref <release-tag>"
   echo "📥 Downloading main branch archive..."
   curl -fsSLo "${ASSET_BASENAME}" -L "${MAIN_URL}"
 
@@ -208,6 +181,8 @@ if [[ -z "$TAG" ]]; then
 
   echo "🚀 Running installer..."
   install_args=(--from-release)
+  # shellcheck source=scripts/lib/install-flags.sh
+  source scripts/lib/install-flags.sh
   build_install_args
 
   ./install.sh "${install_args[@]}"
@@ -215,74 +190,134 @@ if [[ -z "$TAG" ]]; then
   exit 0
 fi
 
-# Tagged release path: full download + SHA256 + optional GPG verification.
-RELEASE_BASE="https://github.com/${REPO}/releases/download/${TAG}"
-# Test/advanced override for integration environments that need bootstrap to
-# fetch artifacts from a non-GitHub release base URL.
-if [[ -n "${BOOTSTRAP_RELEASE_BASE:-}" ]]; then
-  RELEASE_BASE="${BOOTSTRAP_RELEASE_BASE}"
+# Ref provided: resolve to branch, release tag, or tag archive via server probes.
+# Detection order (server decides — no string-shape guessing):
+#   1. HEAD probe to refs/heads/{ref}    → branch → archive download, skip checksum
+#   2. HEAD probe to release asset URL   → release tag → full download + SHA256 + optional GPG
+#   3. fallback refs/tags/{ref}          → tag archive → download, skip checksum, warn
+ASSET_BASENAME="${REPO##*/}-${REF}.tar.gz"
+BRANCH_ARCHIVE_URL="${ARCHIVE_BASE}/refs/heads/${REF}.tar.gz"
+TAG_ARCHIVE_URL="${ARCHIVE_BASE}/refs/tags/${REF}.tar.gz"
+
+# Release base URL; BOOTSTRAP_RELEASE_BASE can be set to override for testing.
+RELEASE_BASE="${BOOTSTRAP_RELEASE_BASE:-https://github.com/${REPO}/releases/download/${REF}}"
+RELEASE_ASSET_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
+
+echo "🔍 Resolving ref '${REF}'..."
+
+# Step 1: probe refs/heads/{ref} — detect branch refs.
+branch_status=$(curl -sI -L --max-time 10 -o /dev/null -w "%{http_code}" "${BRANCH_ARCHIVE_URL}" 2>/dev/null) || branch_status="000"
+
+if [[ "$branch_status" == "200" ]]; then
+  echo "⚠️  Skipping checksum verification for non-release ref '${REF}'."
+  echo "📥 Downloading branch archive..."
+  curl -fsSLo "${ASSET_BASENAME}" -L "${BRANCH_ARCHIVE_URL}"
+
+  echo "📦 Extracting branch archive..."
+  mkdir -p repo
+  tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
+  cd repo
+  chmod +x install.sh
+
+  echo "🚀 Running installer..."
+  install_args=(--from-release --ref "$REF")
+  # shellcheck source=scripts/lib/install-flags.sh
+  source scripts/lib/install-flags.sh
+  build_install_args
+
+  ./install.sh "${install_args[@]}"
+  echo "✅ Bootstrap complete."
+  exit 0
 fi
-ASSET_BASENAME="${REPO##*/}-${TAG}.tar.gz"
-TARBALL_URL="${RELEASE_BASE}/${ASSET_BASENAME}"
 
-echo "📥 Downloading release tarball..."
-curl -fsSLo "${ASSET_BASENAME}" -L "${TARBALL_URL}"
+# Step 2: probe release asset — detect release tags with checksum assets.
+release_status=$(curl -sI -L --max-time 10 -o /dev/null -w "%{http_code}" "${RELEASE_ASSET_URL}" 2>/dev/null) || release_status="000"
 
-SHA_URL="${TARBALL_URL}.sha256"
-SHA_SIG_URL="${SHA_URL}.asc"
-echo "📥 Downloaded: ${ASSET_BASENAME}"
+if [[ "$release_status" == "200" ]]; then
+  # Release tag path: full download + SHA256 + optional GPG verification.
+  echo "📥 Downloading release tarball..."
+  curl -fsSLo "${ASSET_BASENAME}" -L "${RELEASE_ASSET_URL}"
 
-echo "📥 Downloading checksum..."
-curl -fsSLo "${ASSET_BASENAME}.sha256" -L "${SHA_URL}"
+  SHA_URL="${RELEASE_ASSET_URL}.sha256"
+  SHA_SIG_URL="${SHA_URL}.asc"
+  echo "📥 Downloaded: ${ASSET_BASENAME}"
 
-# Optional GPG verification for checksum file
-# If a detached signature is published for the checksum, verify it.
-if curl -fsSLo /dev/null -L "${SHA_SIG_URL}" 2>/dev/null; then
-  if ! command -v gpg >/dev/null 2>&1; then
-    echo "ℹ️ Skipping GPG verification: 'gpg' is not installed."
-  else
-    gpg_status=""
-    signer_fpr=""
-    expected_fpr=""
-    echo "🔐 Found checksum signature; verifying with gpg..."
-    curl -fsSLo "${ASSET_BASENAME}.sha256.asc" -L "${SHA_SIG_URL}"
-    if ! gpg_status="$(gpg --status-fd=1 --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256" 2>&1)"; then
-      echo "❌ GPG verification failed; aborting."
-      exit 2
-    fi
-    signer_fpr="$(printf '%s\n' "$gpg_status" | awk '/^\[GNUPG:\] VALIDSIG / {print toupper($3); exit}')"
-    if [[ -n "$EXPECTED_GPG_FINGERPRINT" ]]; then
-      expected_fpr="$(printf '%s' "$EXPECTED_GPG_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
-      if [[ -z "$signer_fpr" || "$signer_fpr" != "$expected_fpr" ]]; then
-        echo "❌ GPG signer fingerprint mismatch."
-        echo "Expected: ${expected_fpr}"
-        echo "Actual:   ${signer_fpr:-<unknown>}"
+  echo "📥 Downloading checksum..."
+  curl -fsSLo "${ASSET_BASENAME}.sha256" -L "${SHA_URL}"
+
+  # Optional GPG verification for checksum file
+  # If a detached signature is published for the checksum, verify it.
+  if curl -fsSLo /dev/null -L "${SHA_SIG_URL}" 2>/dev/null; then
+    if ! command -v gpg >/dev/null 2>&1; then
+      echo "ℹ️ Skipping GPG verification: 'gpg' is not installed."
+    else
+      gpg_status=""
+      signer_fpr=""
+      expected_fpr=""
+      echo "🔐 Found checksum signature; verifying with gpg..."
+      curl -fsSLo "${ASSET_BASENAME}.sha256.asc" -L "${SHA_SIG_URL}"
+      if ! gpg_status="$(gpg --status-fd=1 --verify "${ASSET_BASENAME}.sha256.asc" "${ASSET_BASENAME}.sha256" 2>&1)"; then
+        echo "❌ GPG verification failed; aborting."
         exit 2
       fi
-      echo "✅ GPG signature verified with expected fingerprint: ${expected_fpr}"
-    else
-      echo "ℹ️ GPG signature verified."
-      echo "ℹ️ Tip: set BOOTSTRAP_GPG_FINGERPRINT to enforce a specific trusted signer."
+      signer_fpr="$(printf '%s\n' "$gpg_status" | awk '/^\[GNUPG:\] VALIDSIG / {print toupper($3); exit}')"
+      if [[ -n "$EXPECTED_GPG_FINGERPRINT" ]]; then
+        expected_fpr="$(printf '%s' "$EXPECTED_GPG_FINGERPRINT" | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')"
+        if [[ -z "$signer_fpr" || "$signer_fpr" != "$expected_fpr" ]]; then
+          echo "❌ GPG signer fingerprint mismatch."
+          echo "Expected: ${expected_fpr}"
+          echo "Actual:   ${signer_fpr:-<unknown>}"
+          exit 2
+        fi
+        echo "✅ GPG signature verified with expected fingerprint: ${expected_fpr}"
+      else
+        echo "ℹ️ GPG signature verified."
+        echo "ℹ️ Tip: set BOOTSTRAP_GPG_FINGERPRINT to enforce a specific trusted signer."
+      fi
     fi
   fi
+
+  echo "🧾 Verifying checksum..."
+  # This validates the tarball bytes before we execute anything from it.
+  verify_checksum "${ASSET_BASENAME}.sha256" "${ASSET_BASENAME}"
+
+  echo "📦 Extracting release..."
+  mkdir -p repo
+  tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
+  cd repo
+  # Ensure installer is executable in freshly extracted archives.
+  chmod +x install.sh
+
+  echo "🚀 Running installer..."
+  # Construct args array safely to avoid quoting bugs.
+  install_args=(--from-release --ref "$REF")
+  # shellcheck source=scripts/lib/install-flags.sh
+  source scripts/lib/install-flags.sh
+  build_install_args
+
+  # Execute installer from the verified release payload.
+  ./install.sh "${install_args[@]}"
+  echo "✅ Bootstrap complete."
+  exit 0
 fi
 
-echo "🧾 Verifying checksum..."
-# This validates the tarball bytes before we execute anything from it.
-verify_checksum "${ASSET_BASENAME}.sha256" "${ASSET_BASENAME}"
+# Step 3: fall back to refs/tags/{ref} archive — tag archive without release assets.
+echo "⚠️  ref '${REF}' not found as a release asset; trying tag archive (unverified)."
+echo "⚠️  Skipping checksum verification for non-release ref '${REF}'."
+echo "📥 Downloading tag archive..."
+curl -fsSLo "${ASSET_BASENAME}" -L "${TAG_ARCHIVE_URL}"
 
-echo "📦 Extracting release..."
+echo "📦 Extracting tag archive..."
 mkdir -p repo
 tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
 cd repo
-# Ensure installer is executable in freshly extracted archives.
 chmod +x install.sh
 
 echo "🚀 Running installer..."
-# Construct args array safely to avoid quoting bugs.
-install_args=(--from-release --tag "$TAG")
+install_args=(--from-release --ref "$REF")
+# shellcheck source=scripts/lib/install-flags.sh
+source scripts/lib/install-flags.sh
 build_install_args
 
-# Execute installer from the verified release payload.
 ./install.sh "${install_args[@]}"
 echo "✅ Bootstrap complete."

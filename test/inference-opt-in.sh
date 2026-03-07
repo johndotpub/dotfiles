@@ -54,12 +54,12 @@ chmod +x "${FAKE_BIN}/curl"
 
 run_install() {
   HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" INFERENCE_MARKER="$MARKER" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag inference-test "$@" >/dev/null
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref inference-test "$@" >/dev/null
 }
 
 run_install_no_yes() {
   HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" INFERENCE_MARKER="$MARKER" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --tag inference-test "$@" >/dev/null
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --ref inference-test "$@" </dev/null >/dev/null
 }
 
 # Default path: no inference scripts should run.

@@ -1,4 +1,4 @@
-# Copilot Workspace Instructions 🤖
+# AI Agent Instructions 🤖
 
 Use these repository standards for all generated code, docs, and workflow updates.
 

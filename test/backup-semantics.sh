@@ -59,7 +59,7 @@ export SHELL="/bin/zsh"
 export DOTFILES_TEST_TIMESTAMP="20990303030303"
 
 # Default mode (no flags): backup-and-replace.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-sem-test >/dev/null
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref backup-sem-test >/dev/null
 
 # ── backup_path semantics ─────────────────────────────────────────────────────
 # .zshrc must have been backed up (moved) — the backup file must exist.

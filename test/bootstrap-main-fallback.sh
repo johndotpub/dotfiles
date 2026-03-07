@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Validate bootstrap.sh main-branch fallback behavior:
-# When --tag is omitted, bootstrap.sh should:
+# When --ref is omitted, bootstrap.sh should:
 #   1) Download the archive pointed to by BOOTSTRAP_MAIN_URL (test override).
 #   2) Skip checksum/GPG verification (no .sha256 file for branch archives).
 #   3) Extract and run install.sh from the archive.
@@ -64,7 +64,7 @@ bootstrap_out="$(
 )"
 
 # 1) Unverified-install warning must appear in output.
-if ! printf '%s\n' "$bootstrap_out" | grep -q 'No --tag provided'; then
+if ! printf '%s\n' "$bootstrap_out" | grep -q 'No --ref provided'; then
   echo "Expected unverified-install warning not found in bootstrap output." >&2
   echo "$bootstrap_out" >&2
   exit 1
