@@ -14,3 +14,6 @@ fi
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 export PATH="$PYENV_ROOT/shims:$PATH"
+
+# OpenClaw environment — delegate to shared init snippet.
+[[ -f "${HOME}/.config/openclaw.sh" ]] && source "${HOME}/.config/openclaw.sh"
