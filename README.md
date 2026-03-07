@@ -43,7 +43,7 @@ Use `--preserve` to keep existing files unchanged without any backups.
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash
 
 # Pinned to a specific release (recommended for reproducible installs):
-curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.4
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.6
 
 # Branch (unverified):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
