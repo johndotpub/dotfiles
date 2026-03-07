@@ -7,41 +7,9 @@ export PATH="$HOME/.npm-global/bin:$PATH"
 
 ZSH_THEME="robbyrussell"
 
-# Homebrew environment
-brew_candidates=(
-  /home/linuxbrew/.linuxbrew/bin/brew
-  "$HOME/.linuxbrew/bin/brew"
-  /opt/homebrew/bin/brew
-  /usr/local/bin/brew
-)
-if [[ -n "${HOMEBREW_PREFIX:-}" ]]; then
-  brew_candidates=("${HOMEBREW_PREFIX}/bin/brew" "${brew_candidates[@]}")
-fi
-
-brew_env_initialized=0
-brew_env_output=""
-
-if command -v brew >/dev/null 2>&1; then
-  if brew_env_output="$(brew shellenv 2>/dev/null)"; then
-    if eval "$brew_env_output"; then
-      brew_env_initialized=1
-    fi
-  fi
-fi
-
-if [[ "$brew_env_initialized" -eq 0 ]]; then
-  for brew_bin in "${brew_candidates[@]}"; do
-    if [[ -x "$brew_bin" ]]; then
-      if brew_env_output="$("$brew_bin" shellenv 2>/dev/null)"; then
-        if eval "$brew_env_output"; then
-          brew_env_initialized=1
-          break
-        fi
-      fi
-    fi
-  done
-fi
-unset brew_bin brew_candidates brew_env_output brew_env_initialized
+# Homebrew environment — delegate to shared init snippet.
+# shellcheck source=.config/brew-init.sh
+[[ -f "${HOME}/.config/brew-init.sh" ]] && source "${HOME}/.config/brew-init.sh"
 
 HIST_STAMPS="yyyy-mm-dd"
 HISTSIZE=-1

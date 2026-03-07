@@ -109,18 +109,19 @@ if [[ "$resolved_brew_with_bad_path" != "${TMP_DIR}/prefix/bin/brew" ]]; then
   exit 1
 fi
 
-# Ensure zsh template carries the same robust fallback structure.
-if ! grep -q 'brew_candidates=(' "${REPO_DIR}/skel/default/.zshrc"; then
-  echo "Expected skel/default/.zshrc to include brew candidate probing." >&2
+# Ensure the brew candidate logic is present in the shared brew-init.sh snippet.
+# .zshrc and .bashrc both source this file instead of duplicating the block.
+if ! grep -q 'brew_candidates=(' "${REPO_DIR}/skel/default/.config/brew-init.sh"; then
+  echo "Expected skel/default/.config/brew-init.sh to include brew candidate probing." >&2
   exit 1
 fi
-if ! grep -q 'brew_env_initialized=0' "${REPO_DIR}/skel/default/.zshrc"; then
-  echo "Expected skel/default/.zshrc to track brew init success state." >&2
+if ! grep -q 'brew_env_initialized=0' "${REPO_DIR}/skel/default/.config/brew-init.sh"; then
+  echo "Expected skel/default/.config/brew-init.sh to track brew init success state." >&2
   exit 1
 fi
 expected_loop="for brew_bin in \"\${brew_candidates[@]}\""
-if ! grep -Fq "$expected_loop" "${REPO_DIR}/skel/default/.zshrc"; then
-  echo "Expected skel/default/.zshrc fallback loop over brew candidates." >&2
+if ! grep -Fq "$expected_loop" "${REPO_DIR}/skel/default/.config/brew-init.sh"; then
+  echo "Expected skel/default/.config/brew-init.sh fallback loop over brew candidates." >&2
   exit 1
 fi
 

@@ -1,6 +1,6 @@
 # ✨A brew-first and zsh-focused toolkit
 
-[![Version](https://img.shields.io/badge/version-v1.0.4-7aa2f7?style=flat-square)](https://github.com/johndotpub/dotfiles/releases/tag/v1.0.4) [![Release](https://img.shields.io/github/v/release/johndotpub/dotfiles?style=flat-square)](https://github.com/johndotpub/dotfiles/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/dotfiles/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/johndotpub/dotfiles/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
+[![Version](https://img.shields.io/badge/version-v1.0.5-7aa2f7?style=flat-square)](https://github.com/johndotpub/dotfiles/releases/tag/v1.0.5) [![Release](https://img.shields.io/github/v/release/johndotpub/dotfiles?style=flat-square)](https://github.com/johndotpub/dotfiles/releases) [![CI](https://img.shields.io/github/actions/workflow/status/johndotpub/dotfiles/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/johndotpub/dotfiles/actions/workflows/ci.yml) [![UNLICENSE](https://img.shields.io/badge/license-UNLICENSE-blue.svg?style=flat-square)](./UNLICENSE)  
 [![Shell Zsh](https://img.shields.io/badge/shell-zsh-89e051?style=flat-square)](https://www.zsh.org/) [![Framework Oh My Zsh](https://img.shields.io/badge/framework-Oh%20My%20Zsh-4fd1c5?style=flat-square)](https://ohmyz.sh/) [![Prompt Starship](https://img.shields.io/badge/prompt-starship-7aa2f7?style=flat-square)](https://starship.rs/) [![Python Pyenv](https://img.shields.io/badge/python-pyenv-3776ab?style=flat-square)](https://github.com/pyenv/pyenv)  
 [![Editor Nano](https://img.shields.io/badge/editor-nano-4a90e2?style=flat-square)](https://www.nano-editor.org/) [![Lint ShellCheck](https://img.shields.io/badge/lint-shellcheck-ffd43b?style=flat-square)](https://www.shellcheck.net/) [![Package Manager Homebrew](https://img.shields.io/badge/package%20manager-Homebrew-fbb040?style=flat-square)](https://brew.sh/) [![Platform Linux/WSL](https://img.shields.io/badge/platform-Linux%20%7C%20WSL-1793d1?style=flat-square)](https://learn.microsoft.com/windows/wsl/)
 
@@ -18,7 +18,7 @@ Clean, straightforward dotfiles setup for Linux/WSL:
 - 🤖 Optional inference tools (`--install-inference`: ollama + llmfit)
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
-- ♻️ Safe re-runs (preserves existing files by default)
+- ♻️ Safe re-runs (backup-and-replace by default; use `--preserve` to keep existing files)
 - 🔒 Single-run lock to prevent concurrent installer collisions
 - 📋 Optional machine-readable install report (`--report-json`)
 
@@ -32,9 +32,9 @@ chmod +x install.sh
 ./install.sh -y
 ```
 
-By default, existing files like `~/.zshrc` are kept as-is.
-Use `--override` only when you intentionally want to replace files.
-When `--override` modifies an existing config, a `.bak.<date>` backup is created.
+By default, existing files like `~/.zshrc` are backed up to `.bak.<date>` and replaced with fresh skel copies.
+If the deployed file already matches skel exactly, the backup and copy are skipped (idempotent reruns).
+Use `--preserve` to keep existing files unchanged without any backups.
 
 ## 🌐 Quick start (Pages bootstrap)
 
@@ -61,7 +61,6 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.4
 │   └── packages.yaml
 ├── scripts/
 │   ├── lib/brew-env.sh
-│   ├── setup-pyenv.sh
 │   ├── setup-starship.sh
 │   └── post-install-checks.sh
 ├── test/
@@ -72,6 +71,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.4
 │   ├── brew-env.sh
 │   ├── installer-lock.sh
 │   ├── installer-idempotency.sh
+│   ├── preserve-flag.sh
 │   ├── tmux-oh-my.sh
 │   ├── report-json.sh
 │   ├── skel-merge.sh
@@ -86,7 +86,9 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.4
         ├── .tmux.conf.local
         ├── .gitconfig
         ├── .ssh/config
-        └── .config/starship.toml
+        └── .config/
+            ├── brew-init.sh
+            └── starship.toml
 ```
 
 ## 📣 Output style
@@ -104,7 +106,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --tag v1.0.4
 - `--create-home-pyver`
 - `--install-inference` (use with `-y` for non-interactive runs)
 - `--dry-run`
-- `--override` (`--force` alias)
+- `--preserve` (keep existing files untouched; opt out of backup-and-replace)
 - `--brew-only`
 - `--no-apt`
 - `--verbose`
@@ -152,7 +154,9 @@ Repository AI guidance lives in `.github/copilot-instructions.md` and includes:
 
 ## 🧠 Migration notes
 
-- Existing files in `$HOME` are preserved by default; `--override` is opt-in.
+- Existing files in `$HOME` are backed up to `.bak.<date>` and replaced with fresh skel copies by default.
+  If the deployed file already matches skel exactly, the backup and copy are skipped.
+  Use `--preserve` to keep existing files unchanged.
 - Existing `~/.ssh/config` is auto-migrated to `~/.ssh/config.local` when local file is absent;
   managed `~/.ssh/config` then includes `~/.ssh/config.local`.
 
@@ -164,7 +168,7 @@ GitHub Actions runs a CI workflow that checks:
 - shellcheck linting
 - no duplicate repo-root shell config files
 - installer/bootstrap help output
-- installer idempotency behavior (including preserving an existing `.zshrc` on reruns)
+- installer idempotency behavior (backup-and-replace by default; no new backups when file matches skel)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
 - SSH config include migration behavior (`test/ssh-config-migration.sh`)
