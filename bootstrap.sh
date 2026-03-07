@@ -138,33 +138,11 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Build release asset URLs from owner/repo + tag.
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
-
-cd "$TMPDIR"
-
-# When --tag is omitted fall back to downloading the latest main branch archive.
-# This path skips checksum and GPG verification because GitHub branch archives
-# do not ship a .sha256 file; the user is warned before anything is executed.
-if [[ -z "$TAG" ]]; then
-  # Override URL for integration tests; defaults to the GitHub archive endpoint.
-  MAIN_URL="${BOOTSTRAP_MAIN_URL:-https://github.com/${REPO}/archive/refs/heads/main.tar.gz}"
-  ASSET_BASENAME="${REPO##*/}-main.tar.gz"
-
-  echo "⚠️  No --tag provided: installing latest main branch (unverified)."
-  echo "ℹ️  For a checksum-verified install, use: --tag <release-tag>"
-  echo "📥 Downloading main branch archive..."
-  curl -fsSLo "${ASSET_BASENAME}" -L "${MAIN_URL}"
-
-  echo "📦 Extracting main branch archive..."
-  mkdir -p repo
-  tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
-  cd repo
-  chmod +x install.sh
-
-  echo "🚀 Running installer..."
-  install_args=(--from-release)
+# Append all user-supplied flags to the install_args array.
+# Called after each path initialises install_args with its own prefix
+# (--from-release for main-branch; --from-release --tag <TAG> for releases).
+# Centralised here so both paths stay in sync as new flags are added.
+build_install_args() {
   if [[ -n "$HOST" ]]; then
     install_args+=(--host "$HOST")
   fi
@@ -201,6 +179,36 @@ if [[ -z "$TAG" ]]; then
   if [[ "$NO_LOCK" -eq 1 ]]; then
     install_args+=(--no-lock)
   fi
+}
+
+# Build release asset URLs from owner/repo + tag.
+TMPDIR="$(mktemp -d)"
+trap 'rm -rf "$TMPDIR"' EXIT
+
+cd "$TMPDIR"
+
+# When --tag is omitted fall back to downloading the latest main branch archive.
+# This path skips checksum and GPG verification because GitHub branch archives
+# do not ship a .sha256 file; the user is warned before anything is executed.
+if [[ -z "$TAG" ]]; then
+  # Override URL for integration tests; defaults to the GitHub archive endpoint.
+  MAIN_URL="${BOOTSTRAP_MAIN_URL:-https://github.com/${REPO}/archive/refs/heads/main.tar.gz}"
+  ASSET_BASENAME="${REPO##*/}-main.tar.gz"
+
+  echo "⚠️  No --tag provided: installing latest main branch (unverified)."
+  echo "ℹ️  For a checksum-verified install, use: --tag <release-tag>"
+  echo "📥 Downloading main branch archive..."
+  curl -fsSLo "${ASSET_BASENAME}" -L "${MAIN_URL}"
+
+  echo "📦 Extracting main branch archive..."
+  mkdir -p repo
+  tar -xzf "${ASSET_BASENAME}" -C repo --strip-components=1
+  cd repo
+  chmod +x install.sh
+
+  echo "🚀 Running installer..."
+  install_args=(--from-release)
+  build_install_args
 
   ./install.sh "${install_args[@]}"
   echo "✅ Bootstrap complete."
@@ -273,42 +281,7 @@ chmod +x install.sh
 echo "🚀 Running installer..."
 # Construct args array safely to avoid quoting bugs.
 install_args=(--from-release --tag "$TAG")
-if [[ -n "$HOST" ]]; then
-  install_args+=(--host "$HOST")
-fi
-if [[ -n "$PYVER" ]]; then
-  install_args+=(--pyver "$PYVER")
-fi
-if [[ "$ASSUME_YES" -eq 1 ]]; then
-  install_args+=(-y)
-fi
-if [[ "$NO_APT" -eq 1 ]]; then
-  install_args+=(--no-apt)
-fi
-if [[ "$BREW_ONLY" -eq 1 ]]; then
-  install_args+=(--brew-only)
-fi
-if [[ "$DRY_RUN" -eq 1 ]]; then
-  install_args+=(--dry-run)
-fi
-if [[ "$PRESERVE" -eq 1 ]]; then
-  install_args+=(--preserve)
-fi
-if [[ "$VERBOSE" -eq 1 ]]; then
-  install_args+=(--verbose)
-fi
-if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
-  install_args+=(--create-home-pyver)
-fi
-if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-  install_args+=(--install-inference)
-fi
-if [[ -n "$REPORT_JSON" ]]; then
-  install_args+=(--report-json "$REPORT_JSON")
-fi
-if [[ "$NO_LOCK" -eq 1 ]]; then
-  install_args+=(--no-lock)
-fi
+build_install_args
 
 # Execute installer from the verified release payload.
 ./install.sh "${install_args[@]}"
