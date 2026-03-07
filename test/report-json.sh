@@ -24,15 +24,15 @@ export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
 # Include control characters in ref to verify escaping robustness.
-TAG_WITH_CONTROLS=$'ci\tline\nbreak\rcarriage'
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref "$TAG_WITH_CONTROLS" --report-json "$REPORT_PATH" >/dev/null
+REF_WITH_CONTROLS=$'ci\tline\nbreak\rcarriage'
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref "$REF_WITH_CONTROLS" --report-json "$REPORT_PATH" >/dev/null
 
 if [[ ! -f "$REPORT_PATH" ]]; then
   echo "Expected report file was not written: ${REPORT_PATH}" >&2
   exit 1
 fi
 
-python3 - "$REPORT_PATH" "$TAG_WITH_CONTROLS" <<'PY'
+python3 - "$REPORT_PATH" "$REF_WITH_CONTROLS" <<'PY'
 import json
 import sys
 

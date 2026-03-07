@@ -2,15 +2,15 @@
 set -euo pipefail
 
 # Tiny bootstrap script:
-# - Downloads a release tarball, branch archive, or commit SHA archive based on --ref
-# - Verifies SHA256 checksum (release path only; skipped for branches and tag archives)
+# - Downloads a release tarball or branch archive based on --ref
+# - Verifies SHA256 checksum (release path only; skipped for branch archives and tag archive fallback)
 # - Optionally verifies GPG signature for the checksum file (release path only)
 # - Executes install.sh from extracted archive
 #
 # Usage (pinned release — recommended):
 #   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref v1.2.3
 #
-# Usage (branch or commit SHA — unverified):
+# Usage (branch — unverified):
 #   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref my-branch
 #
 # Usage (latest main branch — unverified, convenience only):
@@ -99,7 +99,7 @@ usage() {
   cat <<EOF
 Usage: bootstrap.sh [--ref <ref>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run] [--preserve] [--verbose] [--create-home-pyver] [--install-inference] [--report-json <path>] [--no-lock]
 
-  --ref <ref>          (optional) Download a specific release tag, branch, or commit SHA.
+  --ref <ref>          (optional) Download a specific release tag or branch.
                        Omit to install the latest main branch (no checksum verification).
   --preserve           Keep existing files untouched (passed through to install.sh).
   --verbose            Verbose logging (passed through to install.sh).
@@ -112,7 +112,7 @@ Examples:
   # Pinned release (recommended — checksum-verified):
   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref v1.2.3
 
-  # Branch or commit SHA (unverified):
+  # Branch (unverified):
   curl -fsSL https://<your-pages-domain>/bootstrap.sh | bash -s -- --ref my-branch
 
   # Latest main branch (unverified — convenience):
@@ -124,9 +124,12 @@ EOF
 # Parse minimal bootstrap args and forward only supported installer flags.
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --ref) REF="$2"; shift 2 ;;
-    --host) HOST="$2"; shift 2 ;;
-    --pyver) PYVER="$2"; shift 2 ;;
+    --ref) [[ $# -ge 2 ]] || { echo "--ref requires a <ref> argument"; usage 1; }
+      REF="$2"; shift 2 ;;
+    --host) [[ $# -ge 2 ]] || { echo "--host requires a <host> argument"; usage 1; }
+      HOST="$2"; shift 2 ;;
+    --pyver) [[ $# -ge 2 ]] || { echo "--pyver requires a <ver> argument"; usage 1; }
+      PYVER="$2"; shift 2 ;;
     -y|--yes) ASSUME_YES=1; shift ;;
     --no-apt) NO_APT=1; shift ;;
     --brew-only) BREW_ONLY=1; shift ;;

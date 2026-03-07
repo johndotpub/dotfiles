@@ -45,13 +45,13 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash
 # Pinned to a specific release (recommended for reproducible installs):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.4
 
-# Branch or commit SHA (unverified):
+# Branch (unverified):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 ```
 
 > **Note:** The refless form downloads the current `main` branch directly. It skips checksum
 > verification and may include unreleased changes. Use `--ref` with a release tag for a verified,
-> reproducible install. Branches and commit SHAs are also supported but skip checksum verification.
+> reproducible install. Branches are also supported but skip checksum verification.
 
 ## 🗂️ Project layout
 
@@ -104,7 +104,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 
 ## ⚙️ Installer flags
 
-- `--ref <ref>` (release tag, branch, or commit SHA; release tags get checksum verification)
+- `--ref <ref>` (release tag or branch; release tags get checksum verification)
 - `--host <host>` (advanced optional profile name; most users can ignore this)
 - `--pyver <ver>`
 - `--create-home-pyver`
