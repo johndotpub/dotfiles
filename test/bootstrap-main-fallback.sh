@@ -52,26 +52,7 @@ rm -rf "${staging_root}/dotfiles-main/.git" "${staging_root}/dotfiles-main/dist"
 tar -czf "${web_root}/${asset_basename}" -C "$staging_root" dotfiles-main
 
 # Serve the archive over HTTP so BOOTSTRAP_MAIN_URL can point at it.
-port="$(
-  python3 - <<'PY'
-import socket
-s = socket.socket()
-s.bind(("127.0.0.1", 0))
-print(s.getsockname()[1])
-s.close()
-PY
-)"
-
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$web_root" >/dev/null 2>&1 &
-server_pid="$!"
-
-# Wait for the server to be ready.
-for _ in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:${port}/${asset_basename}" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.1
-done
+start_http_server "$web_root"
 
 # Run the local bootstrap.sh directly (no curl needed for the script itself).
 bootstrap_out="$(

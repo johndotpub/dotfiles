@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
-# Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--override] [--brew-only] [--no-apt] [--verbose] [-y]
+# Usage: ./install.sh [--tag TAG] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
 #
 # High-level flow:
 #   1) Parse CLI flags and resolve effective config (CLI + inventory)
@@ -11,7 +11,9 @@ set -euo pipefail
 #   4) Apply user-facing config (skel files, starship, nano syntax)
 #   5) Run post-install checks and exit with clear status logs
 
-OVERRIDE=0
+# Default deploy behaviour: backup existing files to .bak.<date> and deploy
+# fresh copies from skel.  Pass --preserve to keep existing files untouched.
+PRESERVE=0
 CREATE_HOME_PYVER=0
 INSTALL_INFERENCE=0
 PYVER="3.12.12"
@@ -125,8 +127,7 @@ usage() {
 install.sh [options]
 Options:
   -h, --help                 Show this help
-  -f, --override             Overwrite existing files (with .bak.<date> backup)
-      --force                Backward-compatible alias for --override
+      --preserve             Keep existing files untouched (opt out of backup-and-replace)
       --create-home-pyver    Create ~/.python-version with --pyver value
       --pyver <ver>          Python version for ~/.python-version (default: ${PYVER})
       --install-inference    Install optional inference tools (ollama, llmfit)
@@ -145,8 +146,9 @@ Options:
       --inventory-dir <path> Use alternate inventory directory
 
 Behavior:
-  - Existing files are preserved by default.
-  - Use --override to replace existing files (always backed up first).
+  - Existing files are backed up to .bak.<date> and replaced with fresh skel copies.
+  - If a deployed file already matches skel exactly, the backup and copy are skipped.
+  - Use --preserve to keep existing files untouched (no backups, no replacement).
 EOF
 }
 
@@ -157,8 +159,8 @@ while [[ $# -gt 0 ]]; do
       usage
       exit 0
       ;;
-    -f|--override|--force)
-      OVERRIDE=1
+    --preserve)
+      PRESERVE=1
       shift
       ;;
     --create-home-pyver)
@@ -327,7 +329,7 @@ write_install_report() {
   "host": "$(json_escape "${HOST:-}")",
   "from_release": ${FROM_RELEASE},
   "dry_run": ${DRY_RUN},
-  "override": ${OVERRIDE},
+  "preserve": ${PRESERVE},
   "phase": {
     "lock": "$(json_escape "$PHASE_LOCK")",
     "preflight": "$(json_escape "$PHASE_PREFLIGHT")",
@@ -705,8 +707,10 @@ install_brew_from_yaml() {
 
 deploy_skel_profile() {
   # Deploy policy:
-  # - default: preserve existing files and only fill missing content
-  # - --override: replace existing targets after creating .bak.<timestamp>
+  # - default (PRESERVE=0): backup existing files to .bak.<timestamp>, deploy fresh skel copy.
+  #   Idempotent: if the destination already matches skel exactly, skip backup and copy.
+  # - --preserve (PRESERVE=1): keep existing files untouched; only fill missing content.
+  # Directories are always merged without overwriting existing files, regardless of PRESERVE.
   local profile="$1"
   local src_root="${SKEL_DIR}/${profile}"
   if [[ ! -d "$src_root" ]]; then
@@ -720,15 +724,21 @@ deploy_skel_profile() {
     base="$(basename "$src")"
     dest="${HOME}/${base}"
     if [[ -e "$dest" || -L "$dest" ]]; then
-      if [[ "$OVERRIDE" -eq 1 ]]; then
-        backup_path "$dest"
-        copy_item "$src" "$dest"
-        debug "Processed ${dest} with override"
-      elif [[ -d "$src" && -d "$dest" ]]; then
+      if [[ -d "$src" && -d "$dest" ]]; then
+        # Directories: always merge without overwriting existing files.
         info "↪️  Keeping existing ${dest} (adding missing files only)"
         merge_dir_without_overwrite "$src" "$dest"
-      else
+      elif [[ "$PRESERVE" -eq 1 ]]; then
+        # --preserve: keep existing file unchanged.
         info "↪️  Keeping existing ${dest}"
+      elif diff -q "$src" "$dest" >/dev/null 2>&1; then
+        # Content already matches skel: idempotent skip, no spurious backup.
+        debug "Skipping ${dest} (already matches skel)"
+      else
+        # Default: backup existing file then deploy fresh skel copy.
+        backup_path "$dest"
+        copy_item "$src" "$dest"
+        debug "Processed ${dest}"
       fi
       continue
     fi
@@ -738,37 +748,6 @@ deploy_skel_profile() {
   shopt -u dotglob nullglob
 }
 
-configure_starship_prompt() {
-  # Prefer the official preset command when available so users get the
-  # canonical upstream style. Fall back to the bundled preset file otherwise.
-  local target="${HOME}/.config/starship.toml"
-  local fallback="${SKEL_DIR}/${SKEL_PROFILE}/.config/starship.toml"
-
-  if [[ -f "$target" && "$OVERRIDE" -eq 0 ]]; then
-    info "↪️  Keeping existing ${target}"
-    return 0
-  fi
-
-  if [[ -f "$target" && "$OVERRIDE" -eq 1 ]]; then
-    backup_path "$target"
-  fi
-
-  run mkdir -p "${HOME}/.config"
-
-  if command -v starship >/dev/null 2>&1 && starship preset --help >/dev/null 2>&1; then
-    run starship preset tokyo-night -o "$target"
-    ok "Configured starship preset: tokyo-night"
-    return 0
-  fi
-
-  if [[ -f "$fallback" ]]; then
-    copy_item "$fallback" "$target"
-    warn "starship preset command unavailable; applied fallback tokyo-night config."
-    return 0
-  fi
-
-  warn "starship config not written (no preset command and no fallback file)."
-}
 
 configure_oh_my_tmux() {
   # oh-my-tmux provides sane tmux defaults while ~/.tmux.conf.local remains
@@ -795,14 +774,20 @@ configure_oh_my_tmux() {
   fi
 
   if [[ -e "$tmux_conf" || -L "$tmux_conf" ]]; then
-    # Respect preserve-by-default policy for users with existing tmux config.
-    if [[ "$OVERRIDE" -eq 1 ]]; then
-      backup_path "$tmux_conf"
-      run ln -s "$tmux_main_conf" "$tmux_conf"
-      ok "Linked ${tmux_conf} -> ${tmux_main_conf}"
-    else
+    if [[ "$PRESERVE" -eq 1 ]]; then
+      # --preserve: keep existing tmux.conf unchanged.
       info "↪️  Keeping existing ${tmux_conf}"
+      return 0
     fi
+    # Idempotency: if .tmux.conf is already the correct symlink, skip backup.
+    if [[ -L "$tmux_conf" ]] && [[ "$(readlink "$tmux_conf")" == "$tmux_main_conf" ]]; then
+      debug "Skipping ${tmux_conf} (already linked to ${tmux_main_conf})"
+      return 0
+    fi
+    # Default: backup and re-link.
+    backup_path "$tmux_conf"
+    run ln -s "$tmux_main_conf" "$tmux_conf"
+    ok "Linked ${tmux_conf} -> ${tmux_main_conf}"
     return 0
   fi
 
@@ -823,8 +808,8 @@ migrate_ssh_config_include_local() {
   local ssh_local_cfg="${ssh_dir}/config.local"
   local skel_cfg="${SKEL_DIR}/${SKEL_PROFILE}/.ssh/config"
 
-  if [[ "$OVERRIDE" -eq 1 ]]; then
-    debug "Override mode enabled; skipping SSH config include migration helper."
+  if [[ "$PRESERVE" -eq 1 ]]; then
+    debug "Preserve mode enabled; skipping SSH config include migration helper."
     return 0
   fi
 
@@ -922,7 +907,11 @@ configure_nano_syntax() {
       debug "${nano_rc} already includes nanorc syntax files."
       return 0
     fi
-    if [[ "$OVERRIDE" -eq 1 ]]; then
+    if [[ "$PRESERVE" -eq 1 ]]; then
+      # --preserve: keep existing nanorc unchanged.
+      info "↪️  Keeping existing ${nano_rc} (use default mode to append nanorc include)"
+    else
+      # Default: backup copy + append include line.
       backup_copy "$nano_rc"
       if [[ "$DRY_RUN" -eq 1 ]]; then
         printf '🧪 DRY: printf %q >> %q\n' "${include_line}\n" "$nano_rc"
@@ -930,8 +919,6 @@ configure_nano_syntax() {
         printf '\n%s\n' "$include_line" >> "$nano_rc"
       fi
       ok "Updated ${nano_rc} to include nanorc syntax files."
-    else
-      info "↪️  Keeping existing ${nano_rc} (use --override to append nanorc include)"
     fi
     return 0
   fi
@@ -942,46 +929,6 @@ configure_nano_syntax() {
     printf '%s\n' "$include_line" > "$nano_rc"
   fi
   ok "Configured ${nano_rc} with nanorc include."
-}
-
-print_checks() {
-  # Traffic-light output gives an easy visual summary of final state.
-  printf '🚦 Post-install checks\n'
-  if command -v brew >/dev/null 2>&1; then
-    printf '🟢 brew: %s\n' "$(brew --version | awk 'NR==1{print $0}')"
-  else
-    printf '🔴 brew: not found\n'
-  fi
-
-  if command -v starship >/dev/null 2>&1; then
-    printf '🟢 starship: %s\n' "$(starship --version 2>/dev/null || echo 'available')"
-  else
-    printf '🔴 starship: not found\n'
-  fi
-
-  if command -v pyenv >/dev/null 2>&1; then
-    printf '🟢 pyenv: %s\n' "$(pyenv --version 2>/dev/null || echo 'available')"
-  else
-    printf '🟡 pyenv: not found (optional)\n'
-  fi
-
-  if command -v python3 >/dev/null 2>&1; then
-    printf '🟢 python3: %s %s\n' "$(command -v python3)" "$(python3 --version 2>/dev/null || true)"
-  else
-    printf '🔴 python3: not found\n'
-  fi
-
-  if command -v nano >/dev/null 2>&1; then
-    printf '🟢 nano: %s\n' "$(nano --version 2>/dev/null | awk 'NR==1{print $0}')"
-  else
-    printf '🟡 nano: not found (optional)\n'
-  fi
-
-  if command -v tmux >/dev/null 2>&1; then
-    printf '🟢 tmux: %s\n' "$(tmux -V 2>/dev/null || echo 'available')"
-  else
-    printf '🟡 tmux: not found (optional)\n'
-  fi
 }
 
 on_exit() {
@@ -1005,8 +952,8 @@ trap on_exit EXIT
 if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 ]]; then
   if "$SUDO_BIN" -v; then
     # Refresh sudo timestamp roughly every 50 seconds in the background for script lifetime.
-    # Use a builtin timed wait instead of an external sleep to avoid orphaned sleep processes.
-    ( while true; do "$SUDO_BIN" -n true 2>/dev/null; read -r -t 50 _ || true; done ) &
+    # Use sleep (not read) so the loop does not spin on closed stdin in curl|bash pipes.
+    ( while true; do "$SUDO_BIN" -n true 2>/dev/null; sleep 50; done ) &
     SUDO_KEEPALIVE_PID=$!
   fi
 fi
@@ -1140,7 +1087,9 @@ fi
 # Configure starship before skel deploy so fresh installs can use the
 # official preset command path; skel merge then preserves existing config.
 PHASE_CONFIG="in_progress"
-configure_starship_prompt
+# Delegate starship configuration to the dedicated helper script.
+PRESERVE=$PRESERVE DRY_RUN=$DRY_RUN VERBOSE=$VERBOSE SKEL_DIR=$SKEL_DIR SKEL_PROFILE=$SKEL_PROFILE \
+  bash "${REPO_DIR}/scripts/setup-starship.sh"
 configure_oh_my_tmux || true
 migrate_ssh_config_include_local
 deploy_skel_profile "$SKEL_PROFILE"
@@ -1150,15 +1099,20 @@ configure_nano_syntax
 # (via flags or inventory).
 if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
   pyver_file="${HOME}/.python-version"
-  if [[ -f "$pyver_file" && "$OVERRIDE" -eq 0 ]]; then
+  if [[ -f "$pyver_file" && "$PRESERVE" -eq 1 ]]; then
     info "↪️  Keeping existing ${pyver_file}"
-  elif [[ -f "$pyver_file" && "$OVERRIDE" -eq 1 ]]; then
-    backup_path "$pyver_file"
-    if [[ "$DRY_RUN" -eq 1 ]]; then
-      printf '🧪 DRY: echo %q > %q\n' "$PYVER" "$pyver_file"
+  elif [[ -f "$pyver_file" ]]; then
+    # Default: backup and replace (unless content already matches).
+    if grep -Fxq "$PYVER" "$pyver_file" 2>/dev/null; then
+      debug "Skipping ${pyver_file} (already contains ${PYVER})"
     else
-      printf '%s\n' "$PYVER" > "$pyver_file"
-      ok "Configured ${pyver_file} (${PYVER})"
+      backup_path "$pyver_file"
+      if [[ "$DRY_RUN" -eq 1 ]]; then
+        printf '🧪 DRY: echo %q > %q\n' "$PYVER" "$pyver_file"
+      else
+        printf '%s\n' "$PYVER" > "$pyver_file"
+        ok "Configured ${pyver_file} (${PYVER})"
+      fi
     fi
   elif [[ "$DRY_RUN" -eq 1 ]]; then
     printf '🧪 DRY: echo %q > %q\n' "$PYVER" "$pyver_file"
@@ -1171,7 +1125,8 @@ fi
 PHASE_CONFIG="ok"
 
 PHASE_CHECKS="in_progress"
-print_checks
+# Delegate post-install checks to the dedicated helper script.
+VERBOSE=$VERBOSE bash "${REPO_DIR}/scripts/post-install-checks.sh"
 PHASE_CHECKS="ok"
 
 # Offer shell switch only when current shell is not zsh.

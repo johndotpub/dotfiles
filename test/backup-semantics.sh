@@ -8,11 +8,11 @@ set -euo pipefail
 #     - Semantics: original is MOVED to .bak.<ts>; original path is gone
 #
 #   backup_copy (copy-then-keep):
-#     - Used by: nanorc override
+#     - Used by: nanorc default mode
 #     - Semantics: original is COPIED to .bak.<ts>; original path is preserved
 #
 # Both paths are exercised by seeding the relevant files before running
-# install.sh --override with a frozen timestamp.
+# install.sh in its default (backup-and-replace) mode with a frozen timestamp.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,14 +38,14 @@ EOF
   chmod +x "${FAKE_BIN}/${cmd}"
 done
 
-# Seed .zshrc to trigger backup_path (skel deploy, override mode).
+# Seed .zshrc to trigger backup_path (skel deploy, default mode).
 # backup_path MOVES the file: original must be gone after, .bak.TS must exist.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
-# original zshrc — must be moved (not kept) on override
+# original zshrc — must be moved (not kept) in default backup-and-replace mode
 export ORIGINAL_ZSHRC=1
 EOF
 
-# Seed .nanorc WITHOUT the include line to trigger backup_copy (nanorc, override mode).
+# Seed .nanorc WITHOUT the include line to trigger backup_copy (nanorc, default mode).
 # backup_copy COPIES the file: original must still exist after, .bak.TS must also exist.
 cat > "${HOME_DIR}/.nanorc" <<'EOF'
 # custom nano settings
@@ -58,7 +58,8 @@ export SHELL="/bin/zsh"
 # Freeze timestamp so backup names are deterministic.
 export DOTFILES_TEST_TIMESTAMP="20990303030303"
 
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag backup-sem-test >/dev/null
+# Default mode (no flags): backup-and-replace.
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-sem-test >/dev/null
 
 # ── backup_path semantics ─────────────────────────────────────────────────────
 # .zshrc must have been backed up (moved) — the backup file must exist.
@@ -75,13 +76,13 @@ fi
 
 # The fresh .zshrc deployed by the installer must exist (skel replaced it).
 if [[ ! -f "${HOME_DIR}/.zshrc" ]]; then
-  echo "FAIL: install.sh did not deploy a replacement .zshrc after override" >&2
+  echo "FAIL: install.sh did not deploy a replacement .zshrc after default backup-and-replace" >&2
   exit 1
 fi
 
 # The new .zshrc must NOT contain the original marker (it's from skel, not the original).
 if grep -q "ORIGINAL_ZSHRC=1" "${HOME_DIR}/.zshrc"; then
-  echo "FAIL: .zshrc still contains original content after backup_path override" >&2
+  echo "FAIL: .zshrc still contains original content after backup_path backup-and-replace" >&2
   exit 1
 fi
 
@@ -108,13 +109,13 @@ fi
 
 # The original content must still be present in .nanorc (it was appended to, not replaced).
 if ! grep -q "custom nano settings" "${HOME_DIR}/.nanorc"; then
-  echo "FAIL: .nanorc lost original content after backup_copy override" >&2
+  echo "FAIL: .nanorc lost original content after backup_copy backup-and-replace" >&2
   exit 1
 fi
 
 # The include line must have been appended to .nanorc.
 if ! grep -Fxq "include ~/.nano/*.nanorc" "${HOME_DIR}/.nanorc"; then
-  echo "FAIL: nanorc include line was not appended to .nanorc after override" >&2
+  echo "FAIL: nanorc include line was not appended to .nanorc after default backup-and-replace" >&2
   exit 1
 fi
 

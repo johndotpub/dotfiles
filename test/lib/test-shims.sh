@@ -123,6 +123,37 @@ make_tmp_dir() {
     mktemp -d "${TMPDIR:-/tmp}/dotfiles-test.XXXXXX"
 }
 
+# Start a local HTTP server serving <dir> on a free port.
+# Sets $port (and $server_pid) in the caller scope.
+# The caller is responsible for killing $server_pid on cleanup.
+start_http_server() {
+  local dir="$1"
+  # Find a free port using python3.
+  port="$(
+    python3 - <<'PY'
+import socket
+s = socket.socket()
+s.bind(("127.0.0.1", 0))
+print(s.getsockname()[1])
+s.close()
+PY
+  )"
+  python3 -m http.server "$port" --bind 127.0.0.1 --directory "$dir" >/dev/null 2>&1 &
+  # server_pid is intentionally set in caller scope for cleanup.
+  # shellcheck disable=SC2034
+  server_pid="$!"
+  # Poll until the server responds (up to 20 attempts × 0.1 s = 2 s).
+  local n=0
+  while [[ $n -lt 20 ]]; do
+    if curl -sS "http://127.0.0.1:${port}/" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+    n=$((n + 1))
+  done
+  # Return 0 even if poll timed out — server may still be starting up.
+}
+
 # Sudo shim that handles flag-only invocations used by install.sh.
 # sudo -v  → exit 0 (credential warmup, no-op in tests)
 # sudo -n  → strip flag and exec remaining args

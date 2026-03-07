@@ -2,6 +2,34 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.5] 🛠️
+
+### Fixed 🐛
+- 🔄 **Default deploy behaviour flipped** — existing files are now backed up to `.bak.<date>` and replaced with fresh skel copies by default.  Use `--preserve` to keep existing files untouched (the former default behaviour, now explicit).
+  - Removes `--override` / `--force` / `-f` flags entirely — no deprecated aliases needed.
+  - Adds `--preserve` flag (`PRESERVE=0` by default, set to `1` to opt out of replacement).
+  - **Idempotent reruns**: if the deployed file already matches skel exactly, the backup and copy are skipped — no spurious `.bak` files on reruns.
+  - All deploy sites updated: `deploy_skel_profile`, `configure_starship_prompt` (via `setup-starship.sh`), `configure_oh_my_tmux`, `configure_nano_syntax`, `migrate_ssh_config_include_local`, `~/.python-version`.
+- 🐚 **`bootstrap.sh` no longer silently drops unrecognised flags** — added `--preserve`, `--verbose`, `--create-home-pyver`, `--install-inference`, `--report-json <path>`, `--no-lock` to the bootstrap argument parser and forwarded to `install.sh`.
+- 🔒 **Sudo keepalive loop fixed** — replaced `read -r -t 50 _ || true` with `sleep 50` to prevent the keepalive subshell from spinning at 100 % CPU when stdin is closed in a `curl | bash` pipe.
+
+### Changed 🔄
+- 🗑️ **`--report-json` field renamed**: `"override"` key renamed to `"preserve"` to match the new flag.
+- 🧹 **DRY: `scripts/post-install-checks.sh`** rewritten to match `print_checks` verbatim (traffic-light emoji output, same per-tool conditionals).  `install.sh` delegates to the script instead of duplicating the function.
+- 🧹 **DRY: `scripts/setup-starship.sh`** rewritten to match `configure_starship_prompt` exactly, accepting `PRESERVE`, `DRY_RUN`, `VERBOSE`, `SKEL_DIR`, `SKEL_PROFILE` env vars.  `install.sh` delegates to the script.
+- 🧹 **DRY: deleted `scripts/setup-pyenv.sh`** — fully redundant with `packages.yaml` brew installs.
+- 🧹 **DRY: brew-candidates block extracted** to `skel/default/.config/brew-init.sh`.  Both `.zshrc` and `.bashrc` source it instead of duplicating the ~20-line block.
+- 🧹 **DRY: HTTP server helper extracted** — `start_http_server <dir>` added to `test/lib/test-shims.sh`.  Duplicated port-finder + server startup blocks removed from `test/bootstrap-e2e.sh` and `test/bootstrap-main-fallback.sh`.
+
+### Tests ✅
+- 🧪 `installer-idempotency.sh`: updated to assert backup-and-replace on first run; content-equality idempotency on rerun; `--preserve` keeps files unchanged.
+- 🧪 `tmux-oh-my.sh`: updated to assert default backup-and-replace; `--preserve` keeps existing config.
+- 🧪 `backup-semantics.sh`: updated to use default mode (no flag needed) instead of `--override`.
+- 🧪 `backup-collision.sh`: updated to use default mode with mutations between runs.
+- 🧪 `report-json.sh`: updated required key from `"override"` to `"preserve"`.
+- 🧪 `shell-templates.sh`: updated brew candidate checks to point at `skel/default/.config/brew-init.sh`.
+- 🧪 New `test/preserve-flag.sh` + `suite.bats` entry: asserts `--preserve` keeps existing files unchanged with no backups created.
+
 ## [v1.0.4] 🔐
 
 ### Fixed ✅

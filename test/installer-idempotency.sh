@@ -2,9 +2,9 @@
 set -euo pipefail
 
 # Integration test goals:
-#  1) Default run preserves existing user config files.
-#  2) Re-running stays idempotent (no surprise backup files).
-#  3) --override creates .bak.<timestamp> backups before replacement.
+#  1) Default run backs up existing user config files and deploys fresh skel copies.
+#  2) Re-running is idempotent when deployed files already match skel (no new backups).
+#  3) --preserve keeps existing files unchanged with no backups created.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -21,9 +21,9 @@ mkdir -p "$HOME_DIR" "$FAKE_BIN"
 # Shared shims cover brew/starship/pyenv/git/make behavior.
 setup_common_fake_bin "$FAKE_BIN"
 
-# Seed user-managed files that should be preserved by default.
+# Seed user-managed files that exist before the installer runs.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
-# existing zshrc should be preserved
+# existing zshrc — should be backed up and replaced by default
 export KEEP_ME=1
 EOF
 
@@ -36,39 +36,72 @@ export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
-# First run: should preserve existing files and add missing config.
+# First run: default behaviour backs up existing files and deploys fresh copies.
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ci-test >/dev/null
 
-grep -q "KEEP_ME=1" "${HOME_DIR}/.zshrc"
-grep -q "editor = vim" "${HOME_DIR}/.gitconfig"
+# After first run, .zshrc must have been backed up (moved to .bak.*).
+if ! compgen -G "${HOME_DIR}/.zshrc.bak.*" >/dev/null; then
+  echo "Expected .zshrc backup not found on first run (default backup-and-replace)."
+  exit 1
+fi
+
+# The fresh skel .zshrc must exist and must NOT contain the old marker.
+if ! test -f "${HOME_DIR}/.zshrc"; then
+  echo "Expected skel .zshrc to be deployed on first run."
+  exit 1
+fi
+if grep -q "KEEP_ME=1" "${HOME_DIR}/.zshrc"; then
+  echo "Expected .zshrc to be replaced (original content should be in backup only)."
+  exit 1
+fi
+
+# .gitconfig must also have been backed up.
+if ! compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
+  echo "Expected .gitconfig backup not found on first run."
+  exit 1
+fi
+
+# The starship config must have been deployed.
 test -f "${HOME_DIR}/.config/starship.toml"
 
-# Second run: should remain idempotent without creating backups.
+# Second run: deployed files now match skel — no new backups should appear.
+zshrc_bak_count_before="$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)"
+gitconfig_bak_count_before="$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)"
+
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag ci-test >/dev/null
 
-grep -q "KEEP_ME=1" "${HOME_DIR}/.zshrc"
-grep -q "editor = vim" "${HOME_DIR}/.gitconfig"
+zshrc_bak_count_after="$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)"
+gitconfig_bak_count_after="$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)"
 
-if compgen -G "${HOME_DIR}/.zshrc.bak.*" >/dev/null; then
-  echo "Unexpected .zshrc backups found on rerun."
+if [[ "$zshrc_bak_count_after" -gt "$zshrc_bak_count_before" ]]; then
+  echo "Unexpected new .zshrc backups found on idempotent rerun."
+  exit 1
+fi
+if [[ "$gitconfig_bak_count_after" -gt "$gitconfig_bak_count_before" ]]; then
+  echo "Unexpected new .gitconfig backups found on idempotent rerun."
   exit 1
 fi
 
-if compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
-  echo "Unexpected .gitconfig backups found on rerun."
+# --preserve run: existing files must be kept unchanged; no backups created.
+HOME_PRESERVE="${TMP_DIR}/home-preserve"
+mkdir -p "$HOME_PRESERVE"
+cat > "${HOME_PRESERVE}/.zshrc" <<'EOF'
+# keep-this-zshrc
+export PRESERVE_ME=1
+EOF
+
+HOME="$HOME_PRESERVE" PATH="${FAKE_BIN}:$PATH" SHELL="/bin/zsh" \
+  "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --tag ci-test >/dev/null
+
+# Content must be unchanged.
+if ! grep -q "PRESERVE_ME=1" "${HOME_PRESERVE}/.zshrc"; then
+  echo "Expected .zshrc to be preserved unchanged with --preserve."
   exit 1
 fi
 
-# Override run: must create backups before replacing existing files.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag ci-test >/dev/null
-
-if ! compgen -G "${HOME_DIR}/.zshrc.bak.*" >/dev/null; then
-  echo "Expected .zshrc backup not found with --override."
-  exit 1
-fi
-
-if ! compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
-  echo "Expected .gitconfig backup not found with --override."
+# No backup files should exist.
+if compgen -G "${HOME_PRESERVE}/.zshrc.bak.*" >/dev/null; then
+  echo "Unexpected .zshrc backup found with --preserve."
   exit 1
 fi
 

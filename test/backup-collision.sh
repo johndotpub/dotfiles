@@ -16,9 +16,9 @@ mkdir -p "$HOME_DIR" "$FAKE_BIN"
 # Shared shims cover brew/starship/pyenv/git/make behavior.
 setup_common_fake_bin "$FAKE_BIN"
 
-# Seed files that will be overridden twice.
+# Seed a file that differs from skel so the first run creates a backup.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
-# original
+# original — first run will back this up
 export ORIGINAL_ZSHRC=1
 EOF
 
@@ -33,9 +33,18 @@ export SHELL="/bin/zsh"
 # Freeze timestamp so backup collision suffixing is testable.
 export DOTFILES_TEST_TIMESTAMP="20990101010101"
 
-# Two override runs with identical timestamp must suffix backup names.
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag backup-test >/dev/null
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --override --tag backup-test >/dev/null
+# First run: seeds first backup (.bak.TS).
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-test >/dev/null
+
+# Mutate the deployed .zshrc so it differs from skel again — the second run
+# must detect this difference and create a colliding .bak.TS name, which
+# next_backup_path resolves with a numeric suffix (.bak.TS.1).
+printf '%s\n' '# mutated between runs' >> "${HOME_DIR}/.zshrc"
+printf '%s\n' '[user]' >> "${HOME_DIR}/.gitconfig"
+printf '%s\n' '  name = Test' >> "${HOME_DIR}/.gitconfig"
+
+# Second run with same frozen timestamp must suffix backup names on collision.
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --tag backup-test >/dev/null
 
 test -f "${HOME_DIR}/.zshrc.bak.20990101010101"
 test -f "${HOME_DIR}/.zshrc.bak.20990101010101.1"

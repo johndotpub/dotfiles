@@ -79,25 +79,7 @@ cp "${REPO_DIR}/bootstrap.sh" "${web_root}/bootstrap.sh"
 
 # Serve bootstrap and local release assets over HTTP and run the same curl|bash
 # shape recommended in README (only `--tag` argument).
-port="$(
-  python3 - <<'PY'
-import socket
-s = socket.socket()
-s.bind(("127.0.0.1", 0))
-print(s.getsockname()[1])
-s.close()
-PY
-)"
-
-python3 -m http.server "$port" --bind 127.0.0.1 --directory "$web_root" >/dev/null 2>&1 &
-server_pid="$!"
-
-for _ in $(seq 1 20); do
-  if curl -fsS "http://127.0.0.1:${port}/bootstrap.sh" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 0.1
-done
+start_http_server "$web_root"
 
 curl -fsSL "http://127.0.0.1:${port}/bootstrap.sh" | \
   BOOTSTRAP_RELEASE_BASE="http://127.0.0.1:${port}/releases/download/${tag}" \

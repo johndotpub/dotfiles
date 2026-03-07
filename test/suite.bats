@@ -86,3 +86,8 @@ setup() {
   run bash "${REPO_DIR}/test/bootstrap-main-fallback.sh"
   [ "$status" -eq 0 ]
 }
+
+@test "installer: preserve flag" {
+  run bash "${REPO_DIR}/test/preserve-flag.sh"
+  [ "$status" -eq 0 ]
+}

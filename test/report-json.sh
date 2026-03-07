@@ -42,7 +42,7 @@ expected_tag = sys.argv[2]
 with open(path, "r", encoding="utf-8") as f:
     data = json.load(f)
 
-required_top = ["status", "exit_code", "tag", "host", "from_release", "dry_run", "override", "phase"]
+required_top = ["status", "exit_code", "tag", "host", "from_release", "dry_run", "preserve", "phase"]
 for key in required_top:
     if key not in data:
         raise SystemExit(f"missing top-level key: {key}")

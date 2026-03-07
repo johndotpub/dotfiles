@@ -23,6 +23,12 @@ ASSUME_YES=0
 NO_APT=0
 BREW_ONLY=0
 DRY_RUN=0
+PRESERVE=0
+VERBOSE=0
+CREATE_HOME_PYVER=0
+INSTALL_INFERENCE=0
+REPORT_JSON=""
+NO_LOCK=0
 # Optional signer pin for checksum signature verification.
 # When set, verification fails unless the signature matches this fingerprint.
 EXPECTED_GPG_FINGERPRINT="${BOOTSTRAP_GPG_FINGERPRINT:-}"
@@ -88,10 +94,16 @@ verify_checksum() {
 usage() {
   local code="${1:-1}"
   cat <<EOF
-Usage: bootstrap.sh [--tag <tag>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run]
+Usage: bootstrap.sh [--tag <tag>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run] [--preserve] [--verbose] [--create-home-pyver] [--install-inference] [--report-json <path>] [--no-lock]
 
-  --tag <tag>  (optional) Download a specific release tag.  Omit to install
-               the latest main branch directly (no checksum verification).
+  --tag <tag>          (optional) Download a specific release tag.  Omit to install
+                       the latest main branch directly (no checksum verification).
+  --preserve           Keep existing files untouched (passed through to install.sh).
+  --verbose            Verbose logging (passed through to install.sh).
+  --create-home-pyver  Create ~/.python-version (passed through to install.sh).
+  --install-inference  Install optional inference tools (passed through to install.sh).
+  --report-json <path> Write install report JSON to path (passed through to install.sh).
+  --no-lock            Disable installer lock (passed through to install.sh).
 
 Examples:
   # Pinned release (recommended — checksum-verified):
@@ -113,6 +125,14 @@ while [[ $# -gt 0 ]]; do
     --no-apt) NO_APT=1; shift ;;
     --brew-only) BREW_ONLY=1; shift ;;
     --dry-run) DRY_RUN=1; shift ;;
+    --preserve) PRESERVE=1; shift ;;
+    --verbose) VERBOSE=1; shift ;;
+    --create-home-pyver) CREATE_HOME_PYVER=1; shift ;;
+    --install-inference) INSTALL_INFERENCE=1; shift ;;
+    --report-json)
+      [[ $# -ge 2 ]] || { echo "Unknown arg: $1"; usage 1; }
+      REPORT_JSON="$2"; shift 2 ;;
+    --no-lock) NO_LOCK=1; shift ;;
     -h|--help) usage 0 ;;
     *) echo "Unknown arg: $1"; usage 1 ;;
   esac
@@ -162,6 +182,24 @@ if [[ -z "$TAG" ]]; then
   fi
   if [[ "$DRY_RUN" -eq 1 ]]; then
     install_args+=(--dry-run)
+  fi
+  if [[ "$PRESERVE" -eq 1 ]]; then
+    install_args+=(--preserve)
+  fi
+  if [[ "$VERBOSE" -eq 1 ]]; then
+    install_args+=(--verbose)
+  fi
+  if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
+    install_args+=(--create-home-pyver)
+  fi
+  if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
+    install_args+=(--install-inference)
+  fi
+  if [[ -n "$REPORT_JSON" ]]; then
+    install_args+=(--report-json "$REPORT_JSON")
+  fi
+  if [[ "$NO_LOCK" -eq 1 ]]; then
+    install_args+=(--no-lock)
   fi
 
   ./install.sh "${install_args[@]}"
@@ -252,6 +290,24 @@ if [[ "$BREW_ONLY" -eq 1 ]]; then
 fi
 if [[ "$DRY_RUN" -eq 1 ]]; then
   install_args+=(--dry-run)
+fi
+if [[ "$PRESERVE" -eq 1 ]]; then
+  install_args+=(--preserve)
+fi
+if [[ "$VERBOSE" -eq 1 ]]; then
+  install_args+=(--verbose)
+fi
+if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
+  install_args+=(--create-home-pyver)
+fi
+if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
+  install_args+=(--install-inference)
+fi
+if [[ -n "$REPORT_JSON" ]]; then
+  install_args+=(--report-json "$REPORT_JSON")
+fi
+if [[ "$NO_LOCK" -eq 1 ]]; then
+  install_args+=(--no-lock)
 fi
 
 # Execute installer from the verified release payload.
