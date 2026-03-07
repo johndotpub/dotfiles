@@ -1,15 +1,7 @@
 # Path to your Oh My Zsh installation.
 export ZSH="$HOME/.oh-my-zsh"
 
-# Path setup
-export PATH="$HOME/.local/bin:$PATH"
-export PATH="$HOME/.npm-global/bin:$PATH"
-
 ZSH_THEME="robbyrussell"
-
-# Homebrew environment — delegate to shared init snippet.
-# shellcheck source=.config/brew-init.sh
-[[ -f "${HOME}/.config/brew-init.sh" ]] && source "${HOME}/.config/brew-init.sh"
 
 HIST_STAMPS="yyyy-mm-dd"
 HISTSIZE=-1
