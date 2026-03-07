@@ -130,7 +130,7 @@ while [[ $# -gt 0 ]]; do
     --create-home-pyver) CREATE_HOME_PYVER=1; shift ;;
     --install-inference) INSTALL_INFERENCE=1; shift ;;
     --report-json)
-      [[ $# -ge 2 ]] || { echo "Unknown arg: $1"; usage 1; }
+      [[ $# -ge 2 ]] || { echo "--report-json requires a <path> argument"; usage 1; }
       REPORT_JSON="$2"; shift 2 ;;
     --no-lock) NO_LOCK=1; shift ;;
     -h|--help) usage 0 ;;
