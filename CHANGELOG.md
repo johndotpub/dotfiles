@@ -17,14 +17,30 @@ All notable changes to this project are documented here.
 - 📋 **`--report-json` field renamed**: `"tag"` → `"ref"` in the JSON phase report.
 - 🌐 **`BOOTSTRAP_ARCHIVE_BASE`** env override added for integration tests (parallel to the
   existing `BOOTSTRAP_RELEASE_BASE`), enabling fully offline ref-detection probes.
+- 🆕 **`skel/default/.zshenv` added** — minimal environment setup for all zsh modes (PATH, Linuxbrew,
+  pyenv). Deployed to `~/.zshenv` via `deploy_skel_profile`; respects `--preserve` and idempotency.
+- 🔒 **SSH `config.local` backup safety** — `migrate_ssh_config_include_local` backs up any
+  pre-existing `~/.ssh/config.local` before overwriting; `--preserve` skips migration entirely.
+- ♻️ **DRY flag registry** — `scripts/lib/install-flags.sh` is the single source of truth for
+  `build_install_args`; `bootstrap.sh` sources it from the extracted repo after each download path.
+
+### Fixed 🐛
+- 🐛 **`build_install_args` set -e safety** — the function now always exits 0 under
+  `set -euo pipefail`, preventing bootstrap from aborting before `./install.sh` is reached
+  when no optional flags are set.
+- 🐛 **`test/inference-opt-in.sh` stdin hang** — `run_install_no_yes` now passes `< /dev/null`.
 
 ### Tests ✅
 - 🧪 `bootstrap-e2e.sh`: updated to `--ref`; adds `BOOTSTRAP_ARCHIVE_BASE` for offline branch probe.
 - 🧪 `bootstrap-main-fallback.sh`: updated grep check for new `--ref` warning message.
-- 🧪 `report-json.sh`: uses `--ref`; validates `"ref"` field in JSON output.
+- 🧪 `report-json.sh`: uses `--ref`; validates `"ref"` field in JSON output; renames `TAG_WITH_CONTROLS` → `REF_WITH_CONTROLS`.
 - 🧪 All other installer test scripts updated from `--tag` to `--ref`.
 - 🧪 New `test/bootstrap-ref-branch.sh`: asserts branch ref resolves to archive URL, skips checksum.
 - 🧪 `suite.bats`: added `bootstrap: branch ref resolves to archive` test entry; renamed main-fallback entry.
+- 🧪 `installer-idempotency.sh`: extended with `.zshenv` and `.gitconfig` backup + content replacement verification.
+- 🧪 `preserve-flag.sh`: extended with `.zshenv` unchanged-content assertion.
+- 🧪 `shell-templates.sh`: asserts `~/.zshenv` deployed on fresh install.
+- 🧪 `ssh-config-migration.sh`: new Scenario 7 — `--preserve` leaves both `~/.ssh/config` and `~/.ssh/config.local` untouched.
 ## [v1.0.5] 🛠️
 
 ### Fixed 🐛

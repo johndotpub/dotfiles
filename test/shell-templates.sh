@@ -46,6 +46,12 @@ if [[ ! -f "${HOME_DIR}/.bashrc" ]]; then
   exit 1
 fi
 
+# .zshenv must be deployed on a fresh install.
+if [[ ! -f "${HOME_DIR}/.zshenv" ]]; then
+  echo "Expected ~/.zshenv template to be deployed." >&2
+  exit 1
+fi
+
 if [[ ! -f "${chsh_log}" ]]; then
   echo "Expected installer to attempt non-interactive chsh to zsh." >&2
   exit 1

@@ -156,4 +156,35 @@ fi
 # The managed include wrapper should still be seeded at ~/.ssh/config.
 grep -Fq "Include ~/.ssh/config.local" "${HOME_SIX}/.ssh/config"
 
+# Scenario 7: --preserve leaves both ~/.ssh/config and ~/.ssh/config.local untouched.
+# Neither file should be modified, backed up, or overwritten.
+HOME_SEVEN="${TMP_DIR}/home-seven"
+mkdir -p "${HOME_SEVEN}/.ssh"
+cat > "${HOME_SEVEN}/.ssh/config" <<'EOF'
+Host mypreservedhost
+  HostName preserved.example
+EOF
+cat > "${HOME_SEVEN}/.ssh/config.local" <<'EOF'
+Host preserved-local
+  HostName preserved-local.example
+EOF
+
+run_install_for_home "$HOME_SEVEN" --preserve
+
+# Both files must be unchanged — preserve mode skips SSH migration entirely.
+grep -Fq "Host mypreservedhost" "${HOME_SEVEN}/.ssh/config"
+grep -Fq "Host preserved-local" "${HOME_SEVEN}/.ssh/config.local"
+
+# No backup of config.local should have been created.
+if compgen -G "${HOME_SEVEN}/.ssh/config.local.bak.*" >/dev/null; then
+  echo "Unexpected backup of config.local created under --preserve."
+  exit 1
+fi
+
+# The managed include wrapper must NOT have been injected into config.
+if grep -qF 'Include ~/.ssh/config.local' "${HOME_SEVEN}/.ssh/config"; then
+  echo "Include wrapper was injected into ~/.ssh/config under --preserve."
+  exit 1
+fi
+
 echo "SSH include migration checks passed."

@@ -65,6 +65,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 │   └── packages.yaml
 ├── scripts/
 │   ├── lib/brew-env.sh
+│   ├── lib/install-flags.sh
 │   ├── setup-starship.sh
 │   └── post-install-checks.sh
 ├── test/
@@ -87,6 +88,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 └── skel/
     └── default/
         ├── .zshrc
+        ├── .zshenv
         ├── .tmux.conf.local
         ├── .gitconfig
         ├── .ssh/config
@@ -161,8 +163,12 @@ Repository AI guidance lives in `.github/copilot-instructions.md` and includes:
 - Existing files in `$HOME` are backed up to `.bak.<date>` and replaced with fresh skel copies by default.
   If the deployed file already matches skel exactly, the backup and copy are skipped.
   Use `--preserve` to keep existing files unchanged.
+- `~/.zshenv` is deployed from `skel/default/.zshenv` via the same `deploy_skel_profile` path as
+  `.zshrc`; it respects `--preserve` and idempotency in the same way.
 - Existing `~/.ssh/config` is auto-migrated to `~/.ssh/config.local` when local file is absent;
   managed `~/.ssh/config` then includes `~/.ssh/config.local`.
+  If `~/.ssh/config.local` already exists it is backed up before migration.
+  `--preserve` skips the SSH migration entirely, leaving both files untouched.
 
 ## ✅ CI tests
 

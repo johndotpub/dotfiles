@@ -31,6 +31,11 @@ cat > "${HOME_DIR}/.gitconfig" <<'EOF'
   editor = nano
 EOF
 
+cat > "${HOME_DIR}/.zshenv" <<'EOF'
+# user-managed zshenv — must NOT be touched by --preserve
+export KEEP_ME_PRESERVE_ZSHENV=1
+EOF
+
 export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
@@ -48,6 +53,12 @@ fi
 # Existing .gitconfig must be unchanged.
 if ! grep -q "editor = nano" "${HOME_DIR}/.gitconfig"; then
   echo "FAIL: .gitconfig was modified with --preserve (must be kept as-is)" >&2
+  exit 1
+fi
+
+# Existing .zshenv must be unchanged.
+if ! grep -q "KEEP_ME_PRESERVE_ZSHENV=1" "${HOME_DIR}/.zshenv"; then
+  echo "FAIL: .zshenv was modified with --preserve (must be kept as-is)" >&2
   exit 1
 fi
 

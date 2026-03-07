@@ -32,6 +32,11 @@ cat > "${HOME_DIR}/.gitconfig" <<'EOF'
   editor = vim
 EOF
 
+cat > "${HOME_DIR}/.zshenv" <<'EOF'
+# existing zshenv — should be backed up and replaced by default
+export OLD_ZSHENV=1
+EOF
+
 export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
@@ -55,9 +60,23 @@ if grep -q "KEEP_ME=1" "${HOME_DIR}/.zshrc"; then
   exit 1
 fi
 
-# .gitconfig must also have been backed up.
+# .gitconfig must also have been backed up and replaced with the skel copy.
 if ! compgen -G "${HOME_DIR}/.gitconfig.bak.*" >/dev/null; then
   echo "Expected .gitconfig backup not found on first run."
+  exit 1
+fi
+if grep -q "editor = vim" "${HOME_DIR}/.gitconfig"; then
+  echo "Expected .gitconfig to be replaced (original content should be in backup only)."
+  exit 1
+fi
+
+# .zshenv must have been backed up and replaced.
+if ! compgen -G "${HOME_DIR}/.zshenv.bak.*" >/dev/null; then
+  echo "Expected .zshenv backup not found on first run (default backup-and-replace)."
+  exit 1
+fi
+if grep -q "OLD_ZSHENV=1" "${HOME_DIR}/.zshenv"; then
+  echo "Expected .zshenv to be replaced (original content should be in backup only)."
   exit 1
 fi
 
@@ -67,11 +86,13 @@ test -f "${HOME_DIR}/.config/starship.toml"
 # Second run: deployed files now match skel — no new backups should appear.
 zshrc_bak_count_before="$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)"
 gitconfig_bak_count_before="$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)"
+zshenv_bak_count_before="$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)"
 
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref ci-test >/dev/null
 
 zshrc_bak_count_after="$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)"
 gitconfig_bak_count_after="$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)"
+zshenv_bak_count_after="$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)"
 
 if [[ "$zshrc_bak_count_after" -gt "$zshrc_bak_count_before" ]]; then
   echo "Unexpected new .zshrc backups found on idempotent rerun."
@@ -79,6 +100,10 @@ if [[ "$zshrc_bak_count_after" -gt "$zshrc_bak_count_before" ]]; then
 fi
 if [[ "$gitconfig_bak_count_after" -gt "$gitconfig_bak_count_before" ]]; then
   echo "Unexpected new .gitconfig backups found on idempotent rerun."
+  exit 1
+fi
+if [[ "$zshenv_bak_count_after" -gt "$zshenv_bak_count_before" ]]; then
+  echo "Unexpected new .zshenv backups found on idempotent rerun."
   exit 1
 fi
 
@@ -89,6 +114,14 @@ cat > "${HOME_PRESERVE}/.zshrc" <<'EOF'
 # keep-this-zshrc
 export PRESERVE_ME=1
 EOF
+cat > "${HOME_PRESERVE}/.zshenv" <<'EOF'
+# keep-this-zshenv
+export PRESERVE_ZSHENV=1
+EOF
+cat > "${HOME_PRESERVE}/.gitconfig" <<'EOF'
+[core]
+  editor = emacs
+EOF
 
 HOME="$HOME_PRESERVE" PATH="${FAKE_BIN}:$PATH" SHELL="/bin/zsh" \
   "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --preserve --ref ci-test >/dev/null
@@ -98,10 +131,26 @@ if ! grep -q "PRESERVE_ME=1" "${HOME_PRESERVE}/.zshrc"; then
   echo "Expected .zshrc to be preserved unchanged with --preserve."
   exit 1
 fi
+if ! grep -q "PRESERVE_ZSHENV=1" "${HOME_PRESERVE}/.zshenv"; then
+  echo "Expected .zshenv to be preserved unchanged with --preserve."
+  exit 1
+fi
+if ! grep -q "editor = emacs" "${HOME_PRESERVE}/.gitconfig"; then
+  echo "Expected .gitconfig to be preserved unchanged with --preserve."
+  exit 1
+fi
 
 # No backup files should exist.
 if compgen -G "${HOME_PRESERVE}/.zshrc.bak.*" >/dev/null; then
   echo "Unexpected .zshrc backup found with --preserve."
+  exit 1
+fi
+if compgen -G "${HOME_PRESERVE}/.zshenv.bak.*" >/dev/null; then
+  echo "Unexpected .zshenv backup found with --preserve."
+  exit 1
+fi
+if compgen -G "${HOME_PRESERVE}/.gitconfig.bak.*" >/dev/null; then
+  echo "Unexpected .gitconfig backup found with --preserve."
   exit 1
 fi
 

@@ -147,47 +147,9 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Append all user-supplied flags to the install_args array.
-# Called after each path initialises install_args with its own prefix
-# (--from-release for main-branch; --from-release --ref <REF> for tagged/branch refs).
-build_install_args() {
-  if [[ -n "$HOST" ]]; then
-    install_args+=(--host "$HOST")
-  fi
-  if [[ -n "$PYVER" ]]; then
-    install_args+=(--pyver "$PYVER")
-  fi
-  if [[ "$ASSUME_YES" -eq 1 ]]; then
-    install_args+=(-y)
-  fi
-  if [[ "$NO_APT" -eq 1 ]]; then
-    install_args+=(--no-apt)
-  fi
-  if [[ "$BREW_ONLY" -eq 1 ]]; then
-    install_args+=(--brew-only)
-  fi
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    install_args+=(--dry-run)
-  fi
-  if [[ "$PRESERVE" -eq 1 ]]; then
-    install_args+=(--preserve)
-  fi
-  if [[ "$VERBOSE" -eq 1 ]]; then
-    install_args+=(--verbose)
-  fi
-  if [[ "$CREATE_HOME_PYVER" -eq 1 ]]; then
-    install_args+=(--create-home-pyver)
-  fi
-  if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-    install_args+=(--install-inference)
-  fi
-  if [[ -n "$REPORT_JSON" ]]; then
-    install_args+=(--report-json "$REPORT_JSON")
-  fi
-  if [[ "$NO_LOCK" -eq 1 ]]; then
-    install_args+=(--no-lock)
-  fi
-}
+# build_install_args is sourced from scripts/lib/install-flags.sh inside the
+# extracted repository (see each download path below).  That file is the single
+# source of truth for which flags bootstrap.sh forwards to install.sh.
 
 # Build release asset URLs from owner/repo + tag.
 TMPDIR="$(mktemp -d)"
@@ -219,6 +181,8 @@ if [[ -z "$REF" ]]; then
 
   echo "🚀 Running installer..."
   install_args=(--from-release)
+  # shellcheck source=scripts/lib/install-flags.sh
+  source scripts/lib/install-flags.sh
   build_install_args
 
   ./install.sh "${install_args[@]}"
@@ -257,6 +221,8 @@ if [[ "$branch_status" == "200" ]]; then
 
   echo "🚀 Running installer..."
   install_args=(--from-release --ref "$REF")
+  # shellcheck source=scripts/lib/install-flags.sh
+  source scripts/lib/install-flags.sh
   build_install_args
 
   ./install.sh "${install_args[@]}"
@@ -325,6 +291,8 @@ if [[ "$release_status" == "200" ]]; then
   echo "🚀 Running installer..."
   # Construct args array safely to avoid quoting bugs.
   install_args=(--from-release --ref "$REF")
+  # shellcheck source=scripts/lib/install-flags.sh
+  source scripts/lib/install-flags.sh
   build_install_args
 
   # Execute installer from the verified release payload.
@@ -347,6 +315,8 @@ chmod +x install.sh
 
 echo "🚀 Running installer..."
 install_args=(--from-release --ref "$REF")
+# shellcheck source=scripts/lib/install-flags.sh
+source scripts/lib/install-flags.sh
 build_install_args
 
 ./install.sh "${install_args[@]}"
