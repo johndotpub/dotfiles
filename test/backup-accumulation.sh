@@ -73,7 +73,7 @@ assert_backup_count() {
 assert_all_backup_counts() {
   local expected_count="$1"
   local context="$2"
-  local relative_path=""
+  local relative_path
   for relative_path in "${TRACKED_FILES[@]}"; do
     assert_backup_count "$relative_path" "$expected_count" "$context"
   done
@@ -84,18 +84,26 @@ assert_backup_contains() {
   local relative_path="$1"
   local timestamp="$2"
   local needle="$3"
-  if ! grep -q "$needle" "${HOME_DIR}/${relative_path}.bak.${timestamp}"; then
+  if ! grep -Fq "$needle" "${HOME_DIR}/${relative_path}.bak.${timestamp}"; then
     echo "FAIL: ${relative_path}.bak.${timestamp} does not contain expected preserved content: ${needle}" >&2
     exit 1
   fi
 }
 
+# Convert a human-readable mutation marker into a stable gitconfig alias key.
+marker_to_alias_key() {
+  local marker="$1"
+  printf '%s' "$marker" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '-'
+}
+
 # Simulate user edits between runs so default backup-and-replace runs keep rotating.
 mutate_deployed_files() {
   local marker="$1"
+  local alias_key
+  alias_key="$(marker_to_alias_key "$marker")"
   printf '%s\n' "# ${marker}" >> "${HOME_DIR}/.zshrc"
   printf '%s\n' "[alias]" >> "${HOME_DIR}/.gitconfig"
-  printf '%s\n' "  ${marker// /-} = log --oneline" >> "${HOME_DIR}/.gitconfig"
+  printf '%s\n' "  ${alias_key} = log --oneline" >> "${HOME_DIR}/.gitconfig"
   printf '%s\n' "# ${marker}" >> "${HOME_DIR}/.zshenv"
 }
 
@@ -151,7 +159,7 @@ assert_all_backup_counts 2 "after round 2"
 # Round-1 backups must be intact (not overwritten).
 assert_backup_contains ".zshrc" "20990201000001" "ROUND=1"
 assert_backup_contains ".zshrc" "20990201000002" "user edit after round 1"
-assert_backup_contains ".gitconfig" "20990201000002" "user-edit-after-round-1 = log --oneline"
+assert_backup_contains ".gitconfig" "20990201000002" "  user-edit-after-round-1 = log --oneline"
 assert_backup_contains ".zshenv" "20990201000002" "user edit after round 1"
 
 # ── Round 3 — idempotent ──────────────────────────────────────────────────────
@@ -172,7 +180,7 @@ mutate_deployed_files "user edit after round 3"
 run_install "20990201000004"
 assert_all_backup_counts 3 "after round 4"
 assert_backup_contains ".zshrc" "20990201000004" "user edit after round 3"
-assert_backup_contains ".gitconfig" "20990201000004" "user-edit-after-round-3 = log --oneline"
+assert_backup_contains ".gitconfig" "20990201000004" "  user-edit-after-round-3 = log --oneline"
 assert_backup_contains ".zshenv" "20990201000004" "user edit after round 3"
 
 echo "Backup accumulation checks passed."
