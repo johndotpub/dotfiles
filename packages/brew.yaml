@@ -1,0 +1,78 @@
+base:
+  - zsh               # shell
+  - nano              # simple editor
+  - ca-certificates   # TLS certificates
+  - starship          # prompt
+  - git               # version control
+  - tmux              # terminal multiplexer
+  - wget              # alternate fetcher
+  - curl              # HTTP client
+  - jq                # JSON manipulation
+  - tree              # directory tree viewer
+  - unzip             # archive extraction
+  - zip               # archive creation
+  - rsync             # file sync
+  - openssl           # crypto utilities
+  - coreutils         # GNU core utilities
+  - findutils         # GNU find/xargs
+  - gnu-sed           # GNU sed
+  - gnu-tar           # GNU tar
+  - gawk              # GNU awk
+  - grep              # GNU grep
+
+development:
+  - uv                # fast Python environment manager
+  - pyenv             # Python version manager
+  - pyenv-virtualenv  # Python virtualenv integration
+  - python@3.12       # system Python
+  - node              # Node runtime
+  - make              # build tool
+  - cmake             # C/C++ build system
+  - pkg-config        # dependency discovery
+  - shellcheck        # shell script linting
+  - shfmt             # shell script formatting
+  - just              # modern task runner
+
+navigation:
+  - ripgrep           # fast recursive search
+  - fd                # modern find
+  - fzf               # fuzzy finder
+  - bat               # syntax-highlighted cat
+  - eza               # modern ls
+  - zoxide            # smart directory jumping
+  - tokei             # code statistics
+  - dust              # modern du
+  - dua-cli           # interactive disk usage
+
+networking:
+  - httpie            # human-friendly HTTP client
+  - dog               # modern DNS client
+  - mtr               # traceroute + ping
+  - iperf3            # network throughput testing
+  - bandwhich         # live bandwidth usage
+  - nmap              # port scanning and service detection
+
+system:
+  - htop              # classic process viewer
+  - btop              # system monitor
+  - bottom            # Rust system monitor
+  - procs             # modern ps replacement
+  - glances           # cross-platform monitoring
+  - strace            # syscall tracing
+  - lsof              # open file/socket inspection
+  - hyperfine         # command benchmarking
+
+media:
+  - ffmpeg            # audio/video processing
+  - imagemagick       # image manipulation
+  - tesseract         # OCR engine
+  - exiftool          # metadata extraction
+  - sox               # audio processing
+  - poppler           # PDF utilities
+
+security:
+  - age               # modern encryption
+  - mitmproxy         # HTTP inspection/debugging
+
+optional:
+  - wireguard-tools   # secure tunnels
