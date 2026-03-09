@@ -48,6 +48,7 @@ CLI_SET_CREATE_HOME_PYVER=0
 # - apt:  empty means "install no optional sections from packages/apt.yaml"
 BREW_SECTIONS=()
 APT_SECTIONS=()
+YAML_SECTION_KEY_PATTERN='[a-zA-Z0-9_-]+'
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKEL_DIR="${REPO_DIR}/skel"
@@ -471,7 +472,7 @@ yaml_get_scalar() {
 yaml_has_list_key() {
   local key="$1"
   local file="$2"
-  awk -v key="$key" '
+  awk -v key="$key" -v key_pattern="$YAML_SECTION_KEY_PATTERN" '
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
     $0 ~ "^[[:space:]]*" key ":[[:space:]]*$" { found = 1; exit }
     END { exit(found ? 0 : 1) }
@@ -482,11 +483,11 @@ yaml_has_list_key() {
 yaml_get_list() {
   local key="$1"
   local file="$2"
-  awk -v key="$key" '
+  awk -v key="$key" -v key_pattern="$YAML_SECTION_KEY_PATTERN" '
     BEGIN { in_list = 0 }
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
     $0 ~ "^[[:space:]]*" key ":[[:space:]]*$" { in_list = 1; next }
-    in_list && $0 ~ "^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*$" { in_list = 0 }
+    in_list && $0 ~ "^[[:space:]]*" key_pattern ":[[:space:]]*$" { in_list = 0 }
     in_list && $0 ~ "^[[:space:]]*-[[:space:]]+" {
       line = $0
       sub(/^[[:space:]]*-[[:space:]]+/, "", line)
@@ -534,11 +535,11 @@ apply_inventory_file() {
 read_yaml_list() {
   local file="$1"
   local section="$2"
-  awk -v section="$section" '
+  awk -v section="$section" -v key_pattern="$YAML_SECTION_KEY_PATTERN" '
     BEGIN { in_section = 0 }
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
     $0 ~ "^[[:space:]]*" section ":[[:space:]]*$" { in_section = 1; next }
-    in_section && $0 ~ "^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*$" { in_section = 0 }
+    in_section && $0 ~ "^[[:space:]]*" key_pattern ":[[:space:]]*$" { in_section = 0 }
     in_section && $0 ~ "^[[:space:]]*-[[:space:]]+" {
       line = $0
       sub(/^[[:space:]]*-[[:space:]]+/, "", line)
@@ -552,9 +553,9 @@ read_yaml_list() {
 # List the top-level package sections available in a package inventory file.
 list_yaml_sections() {
   local file="$1"
-  awk '
+  awk -v key_pattern="$YAML_SECTION_KEY_PATTERN" '
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
-    /^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*$/ {
+    $0 ~ "^[[:space:]]*" key_pattern ":[[:space:]]*$" {
       line = $0
       sub(/:[[:space:]]*$/, "", line)
       gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
