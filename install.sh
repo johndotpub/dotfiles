@@ -501,6 +501,8 @@ read_yaml_list() {
 }
 
 # List top-level YAML sections from a simple packages inventory file.
+# This lets the installer discover grouped brew sections dynamically while still
+# applying policy filters such as skipping special opt-in sections by default.
 list_yaml_sections() {
   local file="$1"
   awk '
@@ -515,6 +517,8 @@ list_yaml_sections() {
 }
 
 # Check whether a YAML section contains at least one list item.
+# This prevents empty-section probes from triggering misleading install work or
+# phase status changes when an optional group is absent from the inventory.
 yaml_section_has_items() {
   local file="$1"
   local section="$2"
@@ -664,6 +668,8 @@ install_brew_from_yaml() {
 }
 
 # Install brew packages from one or more YAML sections in a single brew call.
+# Batching related sections together keeps the installer efficient and avoids
+# spawning a separate brew process for every default package group.
 install_brew_from_sections() {
   local file="$1"
   shift

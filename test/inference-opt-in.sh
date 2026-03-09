@@ -20,6 +20,8 @@ PKG_DIR="${TMP_DIR}/packages"
 MARKER="${TMP_DIR}/brew-installs.log"
 mkdir -p "$HOME_DIR" "$FAKE_BIN" "$PKG_DIR"
 
+# Create a brew shim that records each install invocation so the test can
+# verify which split package sections were selected by install.sh.
 cat > "${FAKE_BIN}/brew" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail

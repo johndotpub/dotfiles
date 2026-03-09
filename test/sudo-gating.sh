@@ -4,6 +4,8 @@ set -euo pipefail
 # Validate that sudo warmup is skipped when apt work is disabled.
 # This keeps --brew-only and --no-apt runs from prompting unnecessarily.
 
+# Locate repository and test directories up front so all shims and install
+# invocations resolve against the isolated test workspace.
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=test/lib/test-shims.sh
@@ -19,6 +21,8 @@ mkdir -p "$HOME_DIR" "$FAKE_BIN"
 
 setup_common_fake_bin "$FAKE_BIN"
 
+# Create fake sudo that logs invocations so the test can assert that brew-only
+# and no-apt runs never warm up or refresh sudo credentials.
 cat > "${FAKE_BIN}/sudo" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
