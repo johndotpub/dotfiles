@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.7] 🔐
+
+### Fixed 🐛
+- 🔐 **Single-password sudo flow restored** — the installer now warms sudo up front for manual
+  brew-only / `--no-apt` runs that still need privileged shell setup, so `/etc/shells`
+  registration and later privileged steps can reuse the same cached authentication.
+- 🐚 **`chsh` now prefers cached sudo** — when sudo is already authenticated, the installer uses
+  `sudo -n chsh ...` so manual installs do not trigger a second password prompt after package setup.
+
+### Tests ✅
+- 🧪 New `test/sudo-single-prompt.sh` verifies one upfront sudo warmup plus cached sudo reuse for
+  `/etc/shells` registration and `chsh` in the manual brew-only flow.
+- 🧪 `suite.bats`: added `installer: single sudo prompt flow` coverage.
+
 ## [v1.0.6] 🔀
 
 ### Changed 🔄

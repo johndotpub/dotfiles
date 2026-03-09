@@ -270,6 +270,32 @@ run_root() {
   fi
 }
 
+# Decide whether the installer should warm sudo credentials up front.
+# We do this only when a later code path is expected to need root access, so we
+# keep the single-password flow without prompting on purely unprivileged runs.
+should_warm_sudo_session() {
+  if [[ -z "$SUDO_BIN" || "$DRY_RUN" -eq 1 ]]; then
+    return 1
+  fi
+
+  # Apt-enabled Linux flows always need sudo for package/bootstrap work.
+  if [[ "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
+    return 0
+  fi
+
+  # Manual brew-only / --no-apt runs can still need sudo later when we register
+  # a Homebrew-installed zsh path in /etc/shells before changing the login shell.
+  if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
+    local zsh_bin
+    zsh_bin="$(command -v zsh)"
+    if ! grep -qxF "$zsh_bin" /etc/shells 2>/dev/null; then
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 # Escape string data for JSON output fields.
 json_escape() {
   local s="$1"
@@ -503,6 +529,21 @@ confirm_or_die() {
     [Yy]*) return 0 ;;
     *) err "Aborted."; exit 1 ;;
   esac
+}
+
+# Change the default shell while preferring sudo's cached credentials when they
+# are already available. This avoids a second password prompt from `chsh` during
+# manual installs after the installer has already authenticated once for sudo.
+change_default_shell() {
+  local shell_path="$1"
+  local target_user
+  target_user="$(id -un)"
+
+  if [[ -n "$SUDO_BIN" ]] && "$SUDO_BIN" -n true 2>/dev/null; then
+    run "$SUDO_BIN" -n chsh -s "$shell_path" "$target_user"
+  else
+    run chsh -s "$shell_path" "$target_user"
+  fi
 }
 
 # Parse common boolean-like YAML values into 0/1 toggles.
@@ -946,10 +987,9 @@ trap on_exit EXIT
 # Warm up sudo credentials once early so interactive prompts happen up front,
 # and spawn a background keepalive loop to prevent sudo from expiring mid-run.
 # This avoids password piping or storing credentials in variables.
-# Only gate on apt-enabled (non-brew-only) flows to avoid unnecessary prompts
-# in --no-apt or --brew-only runs; warmup is best-effort so auth failure is
-# non-fatal (the keepalive loop is simply not started).
-if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 ]]; then
+# Warmup is still best-effort so auth failure stays non-fatal: later sudo-gated
+# paths will warn or fall back cleanly instead of aborting the whole install.
+if should_warm_sudo_session; then
   if "$SUDO_BIN" -v; then
     # Refresh sudo timestamp roughly every 50 seconds in the background for script lifetime.
     # Use sleep (not read) so the loop does not spin on closed stdin in curl|bash pipes.
@@ -1152,15 +1192,16 @@ if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
 
     if [[ ! -t 0 ]] || [[ "$ASSUME_YES" -eq 1 ]]; then
       # Non-interactive bootstrap installs should still converge to zsh-first
-      # behavior without requiring manual post-install prompts.
-      if chsh -s "$zsh_bin" "$(id -un)" </dev/null >/dev/null 2>&1; then
+      # behavior without requiring manual post-install prompts. Prefer sudo's
+      # cached credentials here so `chsh` does not ask for a second password.
+      if change_default_shell "$zsh_bin" </dev/null >/dev/null 2>&1; then
         ok "Updated default shell to zsh (${zsh_bin})."
       else
         warn "Could not auto-set default shell to zsh. Run: chsh -s ${zsh_bin}"
       fi
     else
       confirm_or_die "Change default shell to zsh?"
-      if run chsh -s "$zsh_bin"; then
+      if change_default_shell "$zsh_bin"; then
         ok "Updated default shell to zsh (${zsh_bin})."
       else
         warn "Could not set default shell to zsh automatically. Run: chsh -s ${zsh_bin}"

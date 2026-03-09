@@ -17,13 +17,28 @@ HOME_DIR="${TMP_DIR}/home"
 FAKE_BIN="${TMP_DIR}/bin"
 mkdir -p "$HOME_DIR" "$FAKE_BIN"
 setup_common_fake_bin "$FAKE_BIN"
+# Keep sudo/chsh fully sandboxed so the shell-switch path stays testable even
+# when the installer prefers cached sudo for manual shell changes.
+write_sudo_shim "$FAKE_BIN"
 
 chsh_log="${TMP_DIR}/chsh.log"
+etc_shells_capture="${TMP_DIR}/etc-shells"
 cat > "${FAKE_BIN}/zsh" <<'EOF'
 #!/usr/bin/env bash
 exit 0
 EOF
 chmod +x "${FAKE_BIN}/zsh"
+
+cat > "${FAKE_BIN}/tee" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "${1:-}" == "-a" && "${2:-}" == "/etc/shells" ]]; then
+  cat >> "${ETC_SHELLS_CAPTURE}"
+  exit 0
+fi
+exec /usr/bin/tee "$@"
+EOF
+chmod +x "${FAKE_BIN}/tee"
 
 cat > "${FAKE_BIN}/chsh" <<'EOF'
 #!/usr/bin/env bash
@@ -37,6 +52,7 @@ export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/bash"
 export CHSH_LOG_FILE="${chsh_log}"
+export ETC_SHELLS_CAPTURE="${etc_shells_capture}"
 
 # Install into an empty HOME and verify bash template is seeded.
 "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref shell-template-test >/dev/null

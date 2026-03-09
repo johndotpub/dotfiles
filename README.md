@@ -20,6 +20,7 @@ Clean, straightforward dotfiles setup for Linux, macOS, and WSL:
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (backup-and-replace by default; use `--preserve` to keep existing files)
 - 🔒 Single-run lock to prevent concurrent installer collisions
+- 🔐 One upfront sudo prompt for privileged install + shell-switch work
 - 📋 Optional machine-readable install report (`--report-json`)
 
 ## 🚀 Quick start (local)
@@ -43,7 +44,7 @@ Use `--preserve` to keep existing files unchanged without any backups.
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash
 
 # Pinned to a specific release (recommended for reproducible installs):
-curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.6
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.7
 
 # Branch (unverified):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
