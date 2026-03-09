@@ -2,3 +2,4 @@ apt_minimal:
   - build-essential   # compilers + headers
   - iftop             # network usage
   - iotop             # disk I/O usage
+  - htop              # Interactive Process Viewer
