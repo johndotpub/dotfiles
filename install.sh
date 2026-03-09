@@ -288,6 +288,9 @@ should_warm_sudo_session() {
   if [[ "${SHELL##*/}" != "zsh" ]] && command -v zsh >/dev/null 2>&1; then
     local zsh_bin
     zsh_bin="$(command -v zsh)"
+    if [[ ! -r /etc/shells ]]; then
+      return 0
+    fi
     if ! grep -qxF "$zsh_bin" /etc/shells 2>/dev/null; then
       return 0
     fi
@@ -539,7 +542,7 @@ change_default_shell() {
   local target_user
   target_user="$(id -un)"
 
-  if [[ -n "$SUDO_BIN" ]] && "$SUDO_BIN" -n true 2>/dev/null; then
+  if [[ -n "$SUDO_BIN" ]] && command -v "$SUDO_BIN" >/dev/null 2>&1 && "$SUDO_BIN" -n true 2>/dev/null; then
     run "$SUDO_BIN" -n chsh -s "$shell_path" "$target_user"
   else
     run chsh -s "$shell_path" "$target_user"

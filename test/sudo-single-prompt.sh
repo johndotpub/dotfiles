@@ -43,7 +43,7 @@ case "${1:-}" in
     exec "$@"
     ;;
   *)
-    echo "Unexpected interactive sudo call: $*" >&2
+    echo "Test shim error: Unexpected interactive sudo call: $*" >&2
     exit 1
     ;;
 esac
