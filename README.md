@@ -15,7 +15,7 @@ Clean, straightforward dotfiles setup for Linux, macOS, and WSL:
 - 🌃 Starship Tokyo Night preset by default
 - 📝 Nano syntax highlighting via nanorc
 - 🧱 tmux via Homebrew + oh-my-tmux base config
-- 🤖 Optional inference tools (`--install-inference`: ollama + llmfit)
+- 🤖 Optional inference Homebrew packages (`--install-inference`)
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (backup-and-replace by default; use `--preserve` to keep existing files)
@@ -62,6 +62,8 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 ├── inventory/
 │   └── default.yaml
 ├── packages/
+│   ├── apt.yaml
+│   ├── brew.yaml
 │   └── packages.yaml
 ├── scripts/
 │   ├── lib/brew-env.sh
@@ -83,6 +85,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 │   ├── ssh-config-migration.sh
 │   ├── inference-opt-in.sh
 │   ├── nanorc-optional-failure.sh
+│   ├── sudo-gating.sh
 │   ├── release-reproducible.sh
 │   └── suite.bats
 └── skel/
@@ -110,7 +113,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 - `--host <host>` (advanced optional profile name; most users can ignore this)
 - `--pyver <ver>`
 - `--create-home-pyver`
-- `--install-inference` (use with `-y` for non-interactive runs)
+- `--install-inference` (installs the optional `inference:` section from `packages/brew.yaml`)
 - `--dry-run`
 - `--preserve` (keep existing files untouched; opt out of backup-and-replace)
 - `--brew-only`
@@ -146,9 +149,11 @@ Verify deterministic archive output:
 
 ## 🧰 Package inventory workflow
 
-`packages/packages.yaml` is the single source of truth for package lists
-(`brew` and `apt_minimal` sections).
-The default brew set includes core tools like `tmux`, `ripgrep`, `fzf`, and `fd`.
+`packages/brew.yaml` is the primary source of truth for grouped Homebrew packages,
+while `packages/apt.yaml` carries the apt fallback list. The installer applies all
+standard brew sections by default, skips the `optional` section, and installs the
+`inference` section only when `--install-inference` is set. `packages/packages.yaml`
+remains as a compatibility fallback for older layouts.
 
 ## 🤖 Agentic standards
 
@@ -185,7 +190,8 @@ GitHub Actions runs a CI workflow that checks:
 - oh-my-tmux bootstrap/preserve/override behavior (`test/tmux-oh-my.sh`)
 - installer lock contention behavior (`test/installer-lock.sh`)
 - report JSON validity/escaping checks (`test/report-json.sh`)
-- inference installer opt-in behavior (`test/inference-opt-in.sh`)
+- split brew inventory + inference opt-in behavior (`test/inference-opt-in.sh`)
+- sudo warmup gating for `--brew-only` / `--no-apt` (`test/sudo-gating.sh`)
 - optional nanorc clone failure handling (`test/nanorc-optional-failure.sh`)
 - brew environment resolution scenarios (`test/brew-env.sh`)
 - bootstrap end-to-end README curl flow (`test/bootstrap-e2e.sh`)

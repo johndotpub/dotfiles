@@ -96,7 +96,8 @@ fi
 
 # ── Round 3 — idempotent ──────────────────────────────────────────────────────
 # All deployed files now match skel exactly (round 2 just re-deployed skel copies).
-# A third install must detect the match and create no new backup files.
+# A third install must detect the match and create no new backup files, leaving
+# each rotated file with exactly two backups after three installer executions.
 
 zshrc_baks_before=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
 gitconfig_baks_before=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
@@ -116,6 +117,33 @@ if [[ "$gitconfig_baks_after" -gt "$gitconfig_baks_before" ]]; then
 fi
 if [[ "$zshenv_baks_after" -gt "$zshenv_baks_before" ]]; then
   echo "FAIL: unexpected new .zshenv backup on idempotent round 3." >&2; exit 1
+fi
+
+if [[ "$zshrc_baks_after" -ne 2 || "$gitconfig_baks_after" -ne 2 || "$zshenv_baks_after" -ne 2 ]]; then
+  echo "FAIL: expected exactly two backups per file after three runs." >&2; exit 1
+fi
+
+# ── Round 4 ───────────────────────────────────────────────────────────────────
+# Simulate another round of user edits. A fourth install must rotate each file
+# again so the backup count grows from two to three per managed file.
+
+printf '%s\n' '# user edit after round 3' >> "${HOME_DIR}/.zshrc"
+printf '%s\n' '[user]' >> "${HOME_DIR}/.gitconfig"
+printf '%s\n' '  name = Dot Files' >> "${HOME_DIR}/.gitconfig"
+printf '%s\n' '# user edit after round 3' >> "${HOME_DIR}/.zshenv"
+
+run_install "20990201000004"
+
+test -f "${HOME_DIR}/.zshrc.bak.20990201000004"
+test -f "${HOME_DIR}/.gitconfig.bak.20990201000004"
+test -f "${HOME_DIR}/.zshenv.bak.20990201000004"
+
+zshrc_baks_final=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
+gitconfig_baks_final=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
+zshenv_baks_final=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
+
+if [[ "$zshrc_baks_final" -ne 3 || "$gitconfig_baks_final" -ne 3 || "$zshenv_baks_final" -ne 3 ]]; then
+  echo "FAIL: expected exactly three backups per file after four runs." >&2; exit 1
 fi
 
 echo "Backup accumulation checks passed."

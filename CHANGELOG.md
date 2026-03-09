@@ -2,6 +2,26 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.7] 🤝
+
+### Fixed 🐛
+- 📦 **Split package inventories now drive installs** — `install.sh` now prefers `packages/brew.yaml`
+  and `packages/apt.yaml`, while keeping `packages/packages.yaml` as a compatibility fallback.
+- 🤖 **Optional inference installs now stay inside Homebrew inventory management** —
+  `--install-inference` installs the `inference:` section from `packages/brew.yaml` instead of
+  fetching upstream curl installer scripts.
+- 🔒 **Sudo warmup now respects `--brew-only` as well as `--no-apt`** — brew-only runs no longer
+  trigger unnecessary sudo credential prompts before the installer starts real work.
+- ♻️ **Backup accumulation coverage now matches the documented rerun policy** —
+  `test/backup-accumulation.sh` now asserts that three runs leave two backups and four runs leave
+  three backups for each rotated file.
+
+### Tests ✅
+- 🧪 `test/inference-opt-in.sh`: now validates split brew inventory behavior and inference-section opt-in.
+- 🧪 New `test/sudo-gating.sh` + `suite.bats` entry: asserts sudo warmup is skipped for `--brew-only`
+  and `--no-apt` flows.
+- 🧪 `test/backup-accumulation.sh`: extended with the fourth-run backup-count assertions.
+
 ## [v1.0.6] 🔀
 
 ### Changed 🔄

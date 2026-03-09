@@ -67,6 +67,11 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
+@test "sudo: apt gating" {
+  run bash "${REPO_DIR}/test/sudo-gating.sh"
+  [ "$status" -eq 0 ]
+}
+
 @test "nano: optional clone failure" {
   run bash "${REPO_DIR}/test/nanorc-optional-failure.sh"
   [ "$status" -eq 0 ]

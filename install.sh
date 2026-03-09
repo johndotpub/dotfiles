@@ -130,7 +130,7 @@ Options:
       --preserve             Keep existing files untouched (opt out of backup-and-replace)
       --create-home-pyver    Create ~/.python-version with --pyver value
       --pyver <ver>          Python version for ~/.python-version (default: ${PYVER})
-      --install-inference    Install optional inference tools (ollama, llmfit)
+      --install-inference    Install optional inference Homebrew packages
       --no-apt               Skip apt installs
       --brew-only            Prefer brew only; skip apt fallback
       --dry-run              Print actions without executing
@@ -440,71 +440,6 @@ run_preflight_checks() {
   PHASE_PREFLIGHT="ok"
 }
 
-# Download and execute an upstream install script in a controlled way.
-run_remote_install_script() {
-  local name="$1"
-  local url="$2"
-  local tmp_script=""
-  local script_hash=""
-  local dry_tmp="/tmp/dotfiles-${name}-install.sh"
-
-  info "🌐 Installing ${name} via upstream installer script..."
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    # Dry-run output mirrors the real download-to-temp execution flow.
-    printf '🧪 DRY: curl -fsSL --retry 3 --connect-timeout 15 %q -o %q\n' "$url" "$dry_tmp"
-    printf '🧪 DRY: bash %q\n' "$dry_tmp"
-    printf '🧪 DRY: rm -f %q\n' "$dry_tmp"
-    return 0
-  fi
-
-  # Restrict helper usage to approved inference installer endpoints.
-  case "$url" in
-    https://ollama.ai/install.sh|https://llmfit.axjns.dev/install.sh) ;;
-    *)
-      warn "Blocked unapproved remote installer URL for ${name}: ${url}"
-      return 1
-      ;;
-  esac
-
-  tmp_script="$(mktemp)"
-  if ! curl -fsSL --retry 3 --connect-timeout 15 "$url" -o "$tmp_script"; then
-    warn "Failed to download installer script for ${name}: ${url}"
-    rm -f "$tmp_script"
-    return 1
-  fi
-
-  if ! script_hash="$(sha256sum "$tmp_script" 2>/dev/null | awk '{print $1}')"; then
-    if command -v shasum >/dev/null 2>&1; then
-      script_hash="$(shasum -a 256 "$tmp_script" | awk '{print $1}')"
-    else
-      script_hash="unavailable"
-    fi
-  fi
-  warn "${name} installer is unpinned by policy. downloaded_sha256=${script_hash}"
-
-  if ! bash "$tmp_script"; then
-    warn "Installer script failed for ${name}."
-    rm -f "$tmp_script"
-    return 1
-  fi
-
-  rm -f "$tmp_script"
-  ok "Finished ${name} installation script."
-}
-
-# Interactive confirmation helper used for shell switch prompts.
-confirm_or_die() {
-  local prompt="$1"
-  if [[ "$ASSUME_YES" -eq 1 ]]; then
-    return 0
-  fi
-  read -r -p "${prompt} [y/N] " ans
-  case "$ans" in
-    [Yy]*) return 0 ;;
-    *) err "Aborted."; exit 1 ;;
-  esac
-}
-
 # Parse common boolean-like YAML values into 0/1 toggles.
 bool_to_int() {
   local normalized
@@ -563,6 +498,29 @@ read_yaml_list() {
       if (line != "") print line
     }
   ' "$file"
+}
+
+# List top-level YAML sections from a simple packages inventory file.
+list_yaml_sections() {
+  local file="$1"
+  awk '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    /^[[:space:]]*[a-zA-Z0-9_]+:[[:space:]]*$/ {
+      line = $0
+      sub(/:[[:space:]]*$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line != "") print line
+    }
+  ' "$file"
+}
+
+# Check whether a YAML section contains at least one list item.
+yaml_section_has_items() {
+  local file="$1"
+  local section="$2"
+  local first_item=""
+  first_item="$(read_yaml_list "$file" "$section" | head -n 1 || true)"
+  [[ -n "$first_item" ]]
 }
 
 # Rename target to a unique backup path (used for override mode).
@@ -695,6 +653,28 @@ install_brew_from_yaml() {
   while IFS= read -r pkg; do
     pkgs+=("$pkg")
   done < <(read_yaml_list "$file" "$section")
+  if [[ "${#pkgs[@]}" -eq 0 ]]; then
+    return 0
+  fi
+  info "🍺 Installing brew packages..."
+  if ! run brew install "${pkgs[@]}"; then
+    warn "brew install failed for one or more packages listed in ${file}. Review output and retry."
+    return 1
+  fi
+}
+
+# Install brew packages from one or more YAML sections in a single brew call.
+install_brew_from_sections() {
+  local file="$1"
+  shift
+  [[ -f "$file" ]] || return 0
+  local pkgs=()
+  local section pkg
+  for section in "$@"; do
+    while IFS= read -r pkg; do
+      pkgs+=("$pkg")
+    done < <(read_yaml_list "$file" "$section")
+  done
   if [[ "${#pkgs[@]}" -eq 0 ]]; then
     return 0
   fi
@@ -949,7 +929,7 @@ trap on_exit EXIT
 # Only gate on apt-enabled (non-brew-only) flows to avoid unnecessary prompts
 # in --no-apt or --brew-only runs; warmup is best-effort so auth failure is
 # non-fatal (the keepalive loop is simply not started).
-if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 ]]; then
+if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
   if "$SUDO_BIN" -v; then
     # Refresh sudo timestamp roughly every 50 seconds in the background for script lifetime.
     # Use sleep (not read) so the loop does not spin on closed stdin in curl|bash pipes.
@@ -997,25 +977,48 @@ PHASE_BREW_BOOTSTRAP="in_progress"
 install_brew_if_missing
 PHASE_BREW_BOOTSTRAP="ok"
 
-PKGS_YAML_FILE="${PKG_DIR}/packages.yaml"
-if [[ ! -f "$PKGS_YAML_FILE" ]]; then
-  err "Missing package inventory: ${PKGS_YAML_FILE}"
+BREW_PKGS_YAML_FILE="${PKG_DIR}/brew.yaml"
+APT_PKGS_YAML_FILE="${PKG_DIR}/apt.yaml"
+LEGACY_PKGS_YAML_FILE="${PKG_DIR}/packages.yaml"
+
+if [[ ! -f "$BREW_PKGS_YAML_FILE" && ! -f "$LEGACY_PKGS_YAML_FILE" ]]; then
+  err "Missing package inventory: ${BREW_PKGS_YAML_FILE} (or legacy ${LEGACY_PKGS_YAML_FILE})"
   exit 1
 fi
 
-# Install package inventory from packages/packages.yaml.
-if [[ -f "$PKGS_YAML_FILE" ]]; then
+# Prefer the split brew inventory when present so package groupings from
+# packages/brew.yaml remain authoritative while preserving legacy compatibility.
+if [[ -f "$BREW_PKGS_YAML_FILE" ]]; then
   PHASE_BREW_PACKAGES="in_progress"
-  install_brew_from_yaml "$PKGS_YAML_FILE" "brew"
+  brew_sections=()
+  while IFS= read -r section; do
+    case "$section" in
+      inference|optional) ;;
+      *) brew_sections+=("$section") ;;
+    esac
+  done < <(list_yaml_sections "$BREW_PKGS_YAML_FILE")
+  install_brew_from_sections "$BREW_PKGS_YAML_FILE" "${brew_sections[@]}"
+  PHASE_BREW_PACKAGES="ok"
+elif [[ -f "$LEGACY_PKGS_YAML_FILE" ]]; then
+  PHASE_BREW_PACKAGES="in_progress"
+  install_brew_from_yaml "$LEGACY_PKGS_YAML_FILE" "brew"
   PHASE_BREW_PACKAGES="ok"
 else
   PHASE_BREW_PACKAGES="skipped"
 fi
 
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
-  if [[ -f "$PKGS_YAML_FILE" ]]; then
+  if [[ -f "$APT_PKGS_YAML_FILE" ]]; then
     PHASE_APT_FALLBACK="in_progress"
-    if install_apt_from_yaml "$PKGS_YAML_FILE" "apt_minimal"; then
+    if install_apt_from_yaml "$APT_PKGS_YAML_FILE" "apt_minimal"; then
+      PHASE_APT_FALLBACK="ok"
+    else
+      PHASE_APT_FALLBACK="warn"
+      warn "Apt fallback install reported errors; continuing with brew-first flow."
+    fi
+  elif [[ -f "$LEGACY_PKGS_YAML_FILE" ]]; then
+    PHASE_APT_FALLBACK="in_progress"
+    if install_apt_from_yaml "$LEGACY_PKGS_YAML_FILE" "apt_minimal"; then
       PHASE_APT_FALLBACK="ok"
     else
       PHASE_APT_FALLBACK="warn"
@@ -1028,47 +1031,21 @@ else
   PHASE_APT_FALLBACK="skipped"
 fi
 
-# Inference tools are explicitly opt-in.
+# Optional inference packages now come from the split brew inventory so package
+# selection stays centralized in packages/brew.yaml.
 if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-  inference_failed=0
-  run_inference=1
-  skipped_requires_yes=0
-  PHASE_INFERENCE="in_progress"
-  info "🤖 Installing optional inference tools..."
-  warn "Inference installers are remote scripts from third-party domains."
-  warn "Only run these tools when you explicitly trust upstream sources."
-
-  # Require explicit acknowledgement in interactive shells unless --yes is used.
-  if [[ "$ASSUME_YES" -eq 0 ]]; then
-    if [[ ! -t 0 ]]; then
-      warn "Non-interactive shell detected; skipping inference installers unless -y/--yes is provided."
-      run_inference=0
-      skipped_requires_yes=1
+  if [[ -f "$BREW_PKGS_YAML_FILE" ]] && yaml_section_has_items "$BREW_PKGS_YAML_FILE" "inference"; then
+    PHASE_INFERENCE="in_progress"
+    info "🤖 Installing optional inference Homebrew packages..."
+    if install_brew_from_sections "$BREW_PKGS_YAML_FILE" "inference"; then
+      PHASE_INFERENCE="ok"
     else
-      confirm_or_die "Proceed with optional remote inference installers (ollama, llmfit)?"
-    fi
-  fi
-
-  # User-approved policy exception: inference installers are intentionally unpinned
-  # because upstream scripts evolve frequently in these projects.
-  if [[ "$run_inference" -eq 1 ]]; then
-    if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
-      inference_failed=1
-    fi
-    if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
-      inference_failed=1
+      PHASE_INFERENCE="warn"
+      warn "One or more optional inference packages failed to install."
     fi
   else
-    inference_failed=0
-  fi
-
-  if [[ "$skipped_requires_yes" -eq 1 ]]; then
     PHASE_INFERENCE="skipped"
-  elif [[ "$inference_failed" -eq 0 ]]; then
-    PHASE_INFERENCE="ok"
-  else
-    PHASE_INFERENCE="warn"
-    warn "One or more optional inference tool installs failed."
+    debug "No inference section found in ${BREW_PKGS_YAML_FILE}; skipping optional inference packages."
   fi
 else
   PHASE_INFERENCE="skipped"

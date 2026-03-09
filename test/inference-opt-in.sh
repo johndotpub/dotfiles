@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Validate inference install policy:
-# 1) No inference scripts run unless --install-inference is explicitly set.
-# 2) With --install-inference, both upstream installer URLs are invoked.
+# Validate split package inventory behavior for optional inference packages:
+# 1) Default brew installs should include only the non-optional brew sections.
+# 2) The inference section should only install when --install-inference is set.
+# 3) The optional section should remain skipped in both cases.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -15,82 +16,101 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 
 HOME_DIR="${TMP_DIR}/home"
 FAKE_BIN="${TMP_DIR}/bin"
-MARKER="${TMP_DIR}/inference-runs.log"
-ORIG_PATH="$PATH"
-mkdir -p "$HOME_DIR" "$FAKE_BIN"
+PKG_DIR="${TMP_DIR}/packages"
+MARKER="${TMP_DIR}/brew-installs.log"
+mkdir -p "$HOME_DIR" "$FAKE_BIN" "$PKG_DIR"
 
-setup_common_fake_bin "$FAKE_BIN"
-
-# Curl shim writes a runnable temp installer script that logs invocation URL.
-cat > "${FAKE_BIN}/curl" <<'EOF'
+cat > "${FAKE_BIN}/brew" <<EOF
 #!/usr/bin/env bash
 set -euo pipefail
-out=""
-url=""
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    -o|--output)
-      out="$2"
-      shift 2
-      ;;
-    -*)
-      shift
-      ;;
-    *)
-      url="$1"
-      shift
-      ;;
-  esac
-done
-[[ -n "$out" ]] || exit 1
-cat > "$out" <<SCRIPT
-#!/usr/bin/env bash
-set -euo pipefail
-printf '%s\n' '${url}' >> '${INFERENCE_MARKER:?}'
-SCRIPT
-chmod +x "$out"
+cmd="\${1:-}"
+case "\$cmd" in
+  shellenv)
+    cat <<'OUT'
+export HOMEBREW_PREFIX=/tmp/fakebrew
+export HOMEBREW_CELLAR=/tmp/fakebrew/Cellar
+export HOMEBREW_REPOSITORY=/tmp/fakebrew/Homebrew
+export PATH=/tmp/fakebrew/bin:\$PATH
+OUT
+    ;;
+  install)
+    shift
+    printf '%s\n' "\$*" >> "${MARKER}"
+    ;;
+  --version)
+    echo "Homebrew 4.4.0"
+    ;;
+  *)
+    exit 0
+    ;;
+esac
 EOF
-chmod +x "${FAKE_BIN}/curl"
+chmod +x "${FAKE_BIN}/brew"
+
+write_starship_shim "$FAKE_BIN"
+write_pyenv_shim "$FAKE_BIN"
+write_git_shim "$FAKE_BIN"
+write_make_shim "$FAKE_BIN"
+
+cat > "${PKG_DIR}/brew.yaml" <<'EOF'
+base:
+  - core-a
+development:
+  - dev-a
+inference:
+  - ollama
+  - llmfit
+optional:
+  - optional-a
+EOF
+
+cat > "${PKG_DIR}/apt.yaml" <<'EOF'
+apt_minimal:
+  - apt-a
+EOF
 
 run_install() {
-  HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" INFERENCE_MARKER="$MARKER" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref inference-test "$@" >/dev/null
+  HOME="$HOME_DIR" PATH="${FAKE_BIN}:$PATH" SHELL="/bin/zsh" \
+    "${REPO_DIR}/install.sh" --no-apt --brew-only --yes --packages-dir "$PKG_DIR" --ref inference-test "$@" >/dev/null
 }
 
-run_install_no_yes() {
-  HOME="$HOME_DIR" PATH="${FAKE_BIN}:${ORIG_PATH}" SHELL="/bin/zsh" INFERENCE_MARKER="$MARKER" \
-    "${REPO_DIR}/install.sh" --no-apt --brew-only --ref inference-test "$@" </dev/null >/dev/null
-}
-
-# Default path: no inference scripts should run.
+# Default run: install only the standard brew sections.
 run_install
-if [[ -f "$MARKER" ]] && [[ -s "$MARKER" ]]; then
-  echo "Inference installer scripts ran without --install-inference." >&2
-  exit 1
-fi
-
-# Opt-in path: both inference installer scripts should run once.
-run_install --install-inference
 if [[ ! -f "$MARKER" ]]; then
-  echo "Inference marker file missing after --install-inference run." >&2
+  echo "Expected brew install log missing after default run." >&2
   exit 1
 fi
 
+first_line="$(sed -n '1p' "$MARKER")"
+if [[ "$first_line" != *"core-a"* || "$first_line" != *"dev-a"* ]]; then
+  echo "Default brew install did not include the non-optional split sections." >&2
+  exit 1
+fi
+if [[ "$first_line" == *"ollama"* || "$first_line" == *"llmfit"* || "$first_line" == *"optional-a"* ]]; then
+  echo "Default brew install should skip inference and optional sections." >&2
+  exit 1
+fi
+
+# Opt-in run: add the dedicated inference section without touching optional.
+run_install --install-inference
 line_count="$(wc -l < "$MARKER" | tr -d '[:space:]')"
-if [[ "$line_count" -ne 2 ]]; then
-  echo "Expected exactly 2 inference installer invocations, got ${line_count}." >&2
+if [[ "$line_count" -ne 3 ]]; then
+  echo "Expected three brew install invocations (default, default rerun, inference opt-in), got ${line_count}." >&2
   exit 1
 fi
 
-grep -Fq "https://ollama.ai/install.sh" "$MARKER"
-grep -Fq "https://llmfit.axjns.dev/install.sh" "$MARKER"
-
-# Non-interactive + --install-inference without -y should skip remote scripts.
-before_count="$line_count"
-run_install_no_yes --install-inference
-after_count="$(wc -l < "$MARKER" | tr -d '[:space:]')"
-if [[ "$before_count" -ne "$after_count" ]]; then
-  echo "Inference installers should be skipped in non-interactive mode without --yes." >&2
+second_line="$(sed -n '2p' "$MARKER")"
+third_line="$(sed -n '3p' "$MARKER")"
+if [[ "$second_line" != *"core-a"* || "$second_line" != *"dev-a"* ]]; then
+  echo "Opt-in run should still install the standard brew sections." >&2
+  exit 1
+fi
+if [[ "$third_line" != *"ollama"* || "$third_line" != *"llmfit"* ]]; then
+  echo "Inference opt-in run did not install the inference section." >&2
+  exit 1
+fi
+if [[ "$third_line" == *"optional-a"* ]]; then
+  echo "Optional brew section should remain skipped during inference opt-in." >&2
   exit 1
 fi
 

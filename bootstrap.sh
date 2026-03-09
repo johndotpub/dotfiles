@@ -104,7 +104,7 @@ Usage: bootstrap.sh [--ref <ref>] [--host <host>] [--pyver <ver>] [-y] [--no-apt
   --preserve           Keep existing files untouched (passed through to install.sh).
   --verbose            Verbose logging (passed through to install.sh).
   --create-home-pyver  Create ~/.python-version (passed through to install.sh).
-  --install-inference  Install optional inference tools (passed through to install.sh).
+  --install-inference  Install optional inference Homebrew packages (passed through to install.sh).
   --report-json <path> Write install report JSON to path (passed through to install.sh).
   --no-lock            Disable installer lock (passed through to install.sh).
 
