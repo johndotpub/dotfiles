@@ -15,9 +15,6 @@ base:
   - openssl           # crypto utilities
   - coreutils         # GNU core utilities
   - findutils         # GNU find/xargs
-  - gnu-sed           # GNU sed
-  - gnu-tar           # GNU tar
-  - gawk              # GNU awk
   - grep              # GNU grep
 
 development:
@@ -34,33 +31,33 @@ development:
   - just              # modern task runner
 
 navigation:
-  - ripgrep           # fast recursive search
-  - fd                # modern find
+  - ripgrep           # fast recursive search (Rust)
+  - fd                # modern find (Rust)
   - fzf               # fuzzy finder
-  - bat               # syntax-highlighted cat
-  - eza               # modern ls
-  - zoxide            # smart directory jumping
-  - tokei             # code statistics
-  - dust              # modern du
-  - dua-cli           # interactive disk usage
+  - bat               # syntax-highlighted cat (Rust)
+  - eza               # modern ls (Rust)
+  - zoxide            # smart directory jumping (Rust)
+  - tokei             # code statistics (Rust)
+  - dust              # modern du (Rust)
+  - dua-cli           # interactive disk usage (Rust)
 
 networking:
   - httpie            # human-friendly HTTP client
-  - dog               # modern DNS client
+  - dog               # modern DNS client (Rust)
   - mtr               # traceroute + ping
   - iperf3            # network throughput testing
-  - bandwhich         # live bandwidth usage
+  - bandwhich         # live bandwidth usage (Rust)
   - nmap              # port scanning and service detection
 
 system:
   - htop              # classic process viewer
   - btop              # system monitor
   - bottom            # Rust system monitor
-  - procs             # modern ps replacement
+  - procs             # modern ps replacement (Rust)
   - glances           # cross-platform monitoring
   - strace            # syscall tracing
   - lsof              # open file/socket inspection
-  - hyperfine         # command benchmarking
+  - hyperfine         # command benchmarking (Rust)
 
 media:
   - ffmpeg            # audio/video processing
@@ -71,8 +68,13 @@ media:
   - poppler           # PDF utilities
 
 security:
-  - age               # modern encryption
+  - age               # modern encryption (Rust)
   - mitmproxy         # HTTP inspection/debugging
+
+inference:
+  - ollama            # local model runner with model registry + GPU support
+  - llama.cpp         # lightweight GGUF inference engine
+  - llmfit            # model quantization + optimization toolkit
 
 optional:
   - wireguard-tools   # secure tunnels
