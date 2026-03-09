@@ -29,7 +29,6 @@ DRY_RUN=0
 PRESERVE=0
 VERBOSE=0
 CREATE_HOME_PYVER=0
-INSTALL_INFERENCE=0
 REPORT_JSON=""
 NO_LOCK=0
 # Optional signer pin for checksum signature verification.
@@ -97,14 +96,13 @@ verify_checksum() {
 usage() {
   local code="${1:-1}"
   cat <<EOF
-Usage: bootstrap.sh [--ref <ref>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run] [--preserve] [--verbose] [--create-home-pyver] [--install-inference] [--report-json <path>] [--no-lock]
+Usage: bootstrap.sh [--ref <ref>] [--host <host>] [--pyver <ver>] [-y] [--no-apt] [--brew-only] [--dry-run] [--preserve] [--verbose] [--create-home-pyver] [--report-json <path>] [--no-lock]
 
   --ref <ref>          (optional) Download a specific release tag or branch.
                        Omit to install the latest main branch (no checksum verification).
   --preserve           Keep existing files untouched (passed through to install.sh).
   --verbose            Verbose logging (passed through to install.sh).
   --create-home-pyver  Create ~/.python-version (passed through to install.sh).
-  --install-inference  Install optional inference tools (passed through to install.sh).
   --report-json <path> Write install report JSON to path (passed through to install.sh).
   --no-lock            Disable installer lock (passed through to install.sh).
 
@@ -137,7 +135,6 @@ while [[ $# -gt 0 ]]; do
     --preserve) PRESERVE=1; shift ;;
     --verbose) VERBOSE=1; shift ;;
     --create-home-pyver) CREATE_HOME_PYVER=1; shift ;;
-    --install-inference) INSTALL_INFERENCE=1; shift ;;
     --report-json)
       [[ $# -ge 2 ]] || { echo "--report-json requires a <path> argument"; usage 1; }
       REPORT_JSON="$2"; shift 2 ;;

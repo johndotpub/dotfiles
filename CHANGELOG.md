@@ -2,6 +2,28 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.7] 📦
+
+### Changed 🔄
+- 📦 **Split package inventories** — the installer now reads `packages/brew.yaml` and `packages/apt.yaml`
+  directly; the legacy `packages/packages.yaml` file has been removed.
+- 🍺 **Brew installs every package section by default** — sectioned brew inventories now remain DRY while
+  still giving full installs on standard runs.
+- 🐧 **Apt sections are opt-in via inventory** — optional Linux packages are only installed when
+  `inventory/*.yaml` provides an `apt_sections` list.
+- 🤖 **Inference tools moved into Homebrew inventory management** — `ollama` and `llmfit` now ride along
+  with the brew package inventory instead of custom curl installer flows.
+
+### Fixed 🐛
+- 🧹 **Removed stale inference installer plumbing** — `--install-inference`, the bootstrap forwarding,
+  and the dedicated remote-script install path are gone, so docs/help output now match actual behavior.
+
+### Tests ✅
+- 🧪 New `test/package-sections.sh`: validates split-package inventory behavior, brew-all-by-default,
+  and apt section opt-in selection with a custom test inventory.
+- 🧪 `report-json.sh`: updated expected phase keys after removing the legacy inference phase.
+- 🧪 `suite.bats`: replaced the inference opt-in entry with the new package section coverage.
+
 ## [v1.0.6] 🔀
 
 ### Changed 🔄
@@ -41,6 +63,7 @@ All notable changes to this project are documented here.
 - 🧪 `preserve-flag.sh`: extended with `.zshenv` unchanged-content assertion.
 - 🧪 `shell-templates.sh`: asserts `~/.zshenv` deployed on fresh install.
 - 🧪 `ssh-config-migration.sh`: new Scenario 7 — `--preserve` leaves both `~/.ssh/config` and `~/.ssh/config.local` untouched.
+
 ## [v1.0.5] 🛠️
 
 ### Fixed 🐛

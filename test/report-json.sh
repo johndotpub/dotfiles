@@ -55,7 +55,7 @@ if data["ref"] != expected_ref:
     raise SystemExit("ref field did not round-trip through JSON escaping")
 
 phase = data.get("phase", {})
-for key in ["lock", "preflight", "apt_baseline", "brew_bootstrap", "brew_packages", "apt_fallback", "inference", "config", "checks"]:
+for key in ["lock", "preflight", "apt_baseline", "brew_bootstrap", "brew_packages", "apt_fallback", "config", "checks"]:
     if key not in phase:
         raise SystemExit(f"missing phase key: {key}")
 PY

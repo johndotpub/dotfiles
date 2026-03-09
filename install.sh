@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
-# Usage: ./install.sh [--ref REF] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
+# Usage: ./install.sh [--ref REF] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
 #
 # High-level flow:
 #   1) Parse CLI flags and resolve effective config (CLI + inventory)
@@ -15,7 +15,6 @@ set -euo pipefail
 # fresh copies from skel.  Pass --preserve to keep existing files untouched.
 PRESERVE=0
 CREATE_HOME_PYVER=0
-INSTALL_INFERENCE=0
 PYVER="3.12.12"
 NO_APT=0
 BREW_ONLY=0
@@ -37,14 +36,18 @@ PHASE_APT_BASELINE="pending"
 PHASE_BREW_BOOTSTRAP="pending"
 PHASE_BREW_PACKAGES="pending"
 PHASE_APT_FALLBACK="pending"
-PHASE_INFERENCE="pending"
 PHASE_CONFIG="pending"
 PHASE_CHECKS="pending"
 
 # Track whether the user explicitly set values so inventory can provide defaults.
 CLI_SET_PYVER=0
 CLI_SET_CREATE_HOME_PYVER=0
-CLI_SET_INSTALL_INFERENCE=0
+
+# Optional package section overrides loaded from inventory files.
+# - brew: empty means "install every section in packages/brew.yaml"
+# - apt:  empty means "install no optional sections from packages/apt.yaml"
+BREW_SECTIONS=()
+APT_SECTIONS=()
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKEL_DIR="${REPO_DIR}/skel"
@@ -130,7 +133,6 @@ Options:
       --preserve             Keep existing files untouched (opt out of backup-and-replace)
       --create-home-pyver    Create ~/.python-version with --pyver value
       --pyver <ver>          Python version for ~/.python-version (default: ${PYVER})
-      --install-inference    Install optional inference tools (ollama, llmfit)
       --no-apt               Skip apt installs
       --brew-only            Prefer brew only; skip apt fallback
       --dry-run              Print actions without executing
@@ -173,11 +175,6 @@ while [[ $# -gt 0 ]]; do
       PYVER="$2"
       CLI_SET_PYVER=1
       shift 2
-      ;;
-    --install-inference)
-      INSTALL_INFERENCE=1
-      CLI_SET_INSTALL_INFERENCE=1
-      shift
       ;;
     --no-apt)
       NO_APT=1
@@ -309,7 +306,7 @@ write_install_report() {
     final_status="success"
   fi
 
-  info "📋 Install phase summary: lock=${PHASE_LOCK}, preflight=${PHASE_PREFLIGHT}, apt_baseline=${PHASE_APT_BASELINE}, brew_bootstrap=${PHASE_BREW_BOOTSTRAP}, brew_packages=${PHASE_BREW_PACKAGES}, apt_fallback=${PHASE_APT_FALLBACK}, inference=${PHASE_INFERENCE}, config=${PHASE_CONFIG}, checks=${PHASE_CHECKS}"
+  info "📋 Install phase summary: lock=${PHASE_LOCK}, preflight=${PHASE_PREFLIGHT}, apt_baseline=${PHASE_APT_BASELINE}, brew_bootstrap=${PHASE_BREW_BOOTSTRAP}, brew_packages=${PHASE_BREW_PACKAGES}, apt_fallback=${PHASE_APT_FALLBACK}, config=${PHASE_CONFIG}, checks=${PHASE_CHECKS}"
 
   if [[ -z "$REPORT_JSON" ]]; then
     return 0
@@ -337,7 +334,6 @@ write_install_report() {
     "brew_bootstrap": "$(json_escape "$PHASE_BREW_BOOTSTRAP")",
     "brew_packages": "$(json_escape "$PHASE_BREW_PACKAGES")",
     "apt_fallback": "$(json_escape "$PHASE_APT_FALLBACK")",
-    "inference": "$(json_escape "$PHASE_INFERENCE")",
     "config": "$(json_escape "$PHASE_CONFIG")",
     "checks": "$(json_escape "$PHASE_CHECKS")"
   }
@@ -440,58 +436,6 @@ run_preflight_checks() {
   PHASE_PREFLIGHT="ok"
 }
 
-# Download and execute an upstream install script in a controlled way.
-run_remote_install_script() {
-  local name="$1"
-  local url="$2"
-  local tmp_script=""
-  local script_hash=""
-  local dry_tmp="/tmp/dotfiles-${name}-install.sh"
-
-  info "🌐 Installing ${name} via upstream installer script..."
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    # Dry-run output mirrors the real download-to-temp execution flow.
-    printf '🧪 DRY: curl -fsSL --retry 3 --connect-timeout 15 %q -o %q\n' "$url" "$dry_tmp"
-    printf '🧪 DRY: bash %q\n' "$dry_tmp"
-    printf '🧪 DRY: rm -f %q\n' "$dry_tmp"
-    return 0
-  fi
-
-  # Restrict helper usage to approved inference installer endpoints.
-  case "$url" in
-    https://ollama.ai/install.sh|https://llmfit.axjns.dev/install.sh) ;;
-    *)
-      warn "Blocked unapproved remote installer URL for ${name}: ${url}"
-      return 1
-      ;;
-  esac
-
-  tmp_script="$(mktemp)"
-  if ! curl -fsSL --retry 3 --connect-timeout 15 "$url" -o "$tmp_script"; then
-    warn "Failed to download installer script for ${name}: ${url}"
-    rm -f "$tmp_script"
-    return 1
-  fi
-
-  if ! script_hash="$(sha256sum "$tmp_script" 2>/dev/null | awk '{print $1}')"; then
-    if command -v shasum >/dev/null 2>&1; then
-      script_hash="$(shasum -a 256 "$tmp_script" | awk '{print $1}')"
-    else
-      script_hash="unavailable"
-    fi
-  fi
-  warn "${name} installer is unpinned by policy. downloaded_sha256=${script_hash}"
-
-  if ! bash "$tmp_script"; then
-    warn "Installer script failed for ${name}."
-    rm -f "$tmp_script"
-    return 1
-  fi
-
-  rm -f "$tmp_script"
-  ok "Finished ${name} installation script."
-}
-
 # Interactive confirmation helper used for shell switch prompts.
 confirm_or_die() {
   local prompt="$1"
@@ -523,6 +467,36 @@ yaml_get_scalar() {
   awk -F': *' -v k="$key" '$1 == k {print $2; exit}' "$file" | tr -d "\"'"
 }
 
+# Check whether a top-level YAML list key exists in a simple inventory file.
+yaml_has_list_key() {
+  local key="$1"
+  local file="$2"
+  awk -v key="$key" '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    $0 ~ "^[[:space:]]*" key ":[[:space:]]*$" { found = 1; exit }
+    END { exit(found ? 0 : 1) }
+  ' "$file"
+}
+
+# Read a simple top-level YAML list from an inventory file.
+yaml_get_list() {
+  local key="$1"
+  local file="$2"
+  awk -v key="$key" '
+    BEGIN { in_list = 0 }
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    $0 ~ "^[[:space:]]*" key ":[[:space:]]*$" { in_list = 1; next }
+    in_list && $0 ~ "^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*$" { in_list = 0 }
+    in_list && $0 ~ "^[[:space:]]*-[[:space:]]+" {
+      line = $0
+      sub(/^[[:space:]]*-[[:space:]]+/, "", line)
+      sub(/[[:space:]]+#.*$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      if (line != "") print line
+    }
+  ' "$file"
+}
+
 # Apply inventory defaults unless user supplied explicit CLI values.
 apply_inventory_file() {
   local file="$1"
@@ -538,12 +512,22 @@ apply_inventory_file() {
     val="$(yaml_get_scalar "create_home_pyver" "$file" || true)"
     [[ -n "$val" ]] && CREATE_HOME_PYVER="$(bool_to_int "$val" "$CREATE_HOME_PYVER")"
   fi
-  if [[ "$CLI_SET_INSTALL_INFERENCE" -eq 0 ]]; then
-    val="$(yaml_get_scalar "install_inference" "$file" || true)"
-    [[ -n "$val" ]] && INSTALL_INFERENCE="$(bool_to_int "$val" "$INSTALL_INFERENCE")"
-  fi
   val="$(yaml_get_scalar "skel_profile" "$file" || true)"
   [[ -n "$val" ]] && SKEL_PROFILE="$val"
+  if yaml_has_list_key "brew_sections" "$file"; then
+    BREW_SECTIONS=()
+    while IFS= read -r val; do
+      [[ -n "$val" ]] || continue
+      BREW_SECTIONS+=("$val")
+    done < <(yaml_get_list "brew_sections" "$file")
+  fi
+  if yaml_has_list_key "apt_sections" "$file"; then
+    APT_SECTIONS=()
+    while IFS= read -r val; do
+      [[ -n "$val" ]] || continue
+      APT_SECTIONS+=("$val")
+    done < <(yaml_get_list "apt_sections" "$file")
+  fi
 }
 
 # Read a YAML list section using a strict, lightweight awk parser.
@@ -554,7 +538,7 @@ read_yaml_list() {
     BEGIN { in_section = 0 }
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
     $0 ~ "^[[:space:]]*" section ":[[:space:]]*$" { in_section = 1; next }
-    in_section && $0 ~ "^[[:space:]]*[a-zA-Z0-9_]+:[[:space:]]*$" { in_section = 0 }
+    in_section && $0 ~ "^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*$" { in_section = 0 }
     in_section && $0 ~ "^[[:space:]]*-[[:space:]]+" {
       line = $0
       sub(/^[[:space:]]*-[[:space:]]+/, "", line)
@@ -563,6 +547,125 @@ read_yaml_list() {
       if (line != "") print line
     }
   ' "$file"
+}
+
+# List the top-level package sections available in a package inventory file.
+list_yaml_sections() {
+  local file="$1"
+  awk '
+    /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
+    /^[[:space:]]*[a-zA-Z0-9_-]+:[[:space:]]*$/ {
+      line = $0
+      sub(/:[[:space:]]*$/, "", line)
+      gsub(/^[[:space:]]+|[[:space:]]+$/, "", line)
+      print line
+    }
+  ' "$file"
+}
+
+# Return success when the candidate already exists in the provided list.
+array_contains() {
+  local needle="$1"
+  shift || true
+  local item=""
+  for item in "$@"; do
+    if [[ "$item" == "$needle" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+# Resolve the effective package sections for a package manager inventory file.
+# Default behavior is intentionally asymmetric:
+# - brew installs every section when no override is configured
+# - apt installs no optional sections unless inventory opts into them
+resolve_package_sections() {
+  local file="$1"
+  local default_mode="$2"
+  shift 2
+  local requested_sections=("$@")
+  local section=""
+
+  if [[ "${#requested_sections[@]}" -gt 0 ]]; then
+    printf '%s\n' "${requested_sections[@]}"
+    return 0
+  fi
+
+  if [[ "$default_mode" != "all" ]]; then
+    return 0
+  fi
+
+  while IFS= read -r section; do
+    [[ -n "$section" ]] || continue
+    printf '%s\n' "$section"
+  done < <(list_yaml_sections "$file")
+}
+
+# Collect and de-duplicate package names from the requested YAML sections.
+collect_yaml_packages() {
+  local file="$1"
+  shift
+  local sections=("$@")
+  local pkgs=()
+  local section=""
+  local pkg=""
+
+  for section in "${sections[@]}"; do
+    while IFS= read -r pkg; do
+      [[ -n "$pkg" ]] || continue
+      if ! array_contains "$pkg" "${pkgs[@]}"; then
+        pkgs+=("$pkg")
+      fi
+    done < <(read_yaml_list "$file" "$section")
+  done
+
+  for pkg in "${pkgs[@]}"; do
+    printf '%s\n' "$pkg"
+  done
+}
+
+# Install a de-duplicated package set from one or more YAML sections.
+install_packages_from_yaml() {
+  local manager="$1"
+  local file="$2"
+  local default_mode="$3"
+  shift 3
+  [[ -f "$file" ]] || return 0
+
+  local sections=()
+  local pkgs=()
+  local value=""
+
+  while IFS= read -r value; do
+    [[ -n "$value" ]] || continue
+    sections+=("$value")
+  done < <(resolve_package_sections "$file" "$default_mode" "$@")
+
+  while IFS= read -r value; do
+    [[ -n "$value" ]] || continue
+    pkgs+=("$value")
+  done < <(collect_yaml_packages "$file" "${sections[@]}")
+
+  if [[ "${#pkgs[@]}" -eq 0 ]]; then
+    debug "No ${manager} packages selected from ${file}"
+    return 0
+  fi
+
+  if [[ "$manager" == "brew" ]]; then
+    info "🍺 Installing brew packages..."
+    if ! run brew install "${pkgs[@]}"; then
+      warn "brew install failed for one or more packages listed in ${file}. Review output and retry."
+      return 1
+    fi
+    return 0
+  fi
+
+  info "📦 Installing optional apt packages..."
+  if ! run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"; then
+    warn "apt package installation failed for one or more packages listed in ${file}."
+    return 1
+  fi
 }
 
 # Rename target to a unique backup path (used for override mode).
@@ -661,48 +764,24 @@ install_apt_baseline() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
 }
 
-# Install apt fallback package list from YAML section.
+# Install optional apt package sections from packages/apt.yaml.
 install_apt_from_yaml() {
   local file="$1"
-  local section="$2"
+  shift
   [[ -f "$file" ]] || return 0
   if ! command -v apt-get >/dev/null 2>&1; then
     debug "apt-get not found; skipping apt fallback installs"
     return 0
   fi
-  local pkgs=()
-  local pkg=""
-  while IFS= read -r pkg; do
-    pkgs+=("$pkg")
-  done < <(read_yaml_list "$file" "$section")
-  if [[ "${#pkgs[@]}" -eq 0 ]]; then
-    return 0
-  fi
-  info "📦 Installing apt fallback packages..."
-  if ! run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"; then
-    warn "apt fallback package installation failed for one or more packages."
-    return 1
-  fi
+  install_packages_from_yaml "apt" "$file" "none" "$@"
 }
 
-# Install brew package list from YAML section.
+# Install brew package sections from packages/brew.yaml.
 install_brew_from_yaml() {
   local file="$1"
-  local section="$2"
+  shift
   [[ -f "$file" ]] || return 0
-  local pkgs=()
-  local pkg=""
-  while IFS= read -r pkg; do
-    pkgs+=("$pkg")
-  done < <(read_yaml_list "$file" "$section")
-  if [[ "${#pkgs[@]}" -eq 0 ]]; then
-    return 0
-  fi
-  info "🍺 Installing brew packages..."
-  if ! run brew install "${pkgs[@]}"; then
-    warn "brew install failed for one or more packages listed in ${file}. Review output and retry."
-    return 1
-  fi
+  install_packages_from_yaml "brew" "$file" "all" "$@"
 }
 
 deploy_skel_profile() {
@@ -974,7 +1053,6 @@ fi
 
 debug "effective_pyver=${PYVER}"
 debug "effective_create_home_pyver=${CREATE_HOME_PYVER}"
-debug "effective_install_inference=${INSTALL_INFERENCE}"
 debug "effective_skel_profile=${SKEL_PROFILE}"
 
 # Optional apt path for Linux hosts. Disabled in brew-only or no-apt modes.
@@ -997,81 +1075,36 @@ PHASE_BREW_BOOTSTRAP="in_progress"
 install_brew_if_missing
 PHASE_BREW_BOOTSTRAP="ok"
 
-PKGS_YAML_FILE="${PKG_DIR}/packages.yaml"
-if [[ ! -f "$PKGS_YAML_FILE" ]]; then
-  err "Missing package inventory: ${PKGS_YAML_FILE}"
+BREW_YAML_FILE="${PKG_DIR}/brew.yaml"
+APT_YAML_FILE="${PKG_DIR}/apt.yaml"
+if [[ ! -f "$BREW_YAML_FILE" ]]; then
+  err "Missing brew package inventory: ${BREW_YAML_FILE}"
   exit 1
 fi
 
-# Install package inventory from packages/packages.yaml.
-if [[ -f "$PKGS_YAML_FILE" ]]; then
+# Install the brew inventory. By default every brew section is installed.
+if [[ -f "$BREW_YAML_FILE" ]]; then
   PHASE_BREW_PACKAGES="in_progress"
-  install_brew_from_yaml "$PKGS_YAML_FILE" "brew"
+  install_brew_from_yaml "$BREW_YAML_FILE" "${BREW_SECTIONS[@]}"
   PHASE_BREW_PACKAGES="ok"
 else
   PHASE_BREW_PACKAGES="skipped"
 fi
 
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
-  if [[ -f "$PKGS_YAML_FILE" ]]; then
+  if [[ -f "$APT_YAML_FILE" ]]; then
     PHASE_APT_FALLBACK="in_progress"
-    if install_apt_from_yaml "$PKGS_YAML_FILE" "apt_minimal"; then
+    if install_apt_from_yaml "$APT_YAML_FILE" "${APT_SECTIONS[@]}"; then
       PHASE_APT_FALLBACK="ok"
     else
       PHASE_APT_FALLBACK="warn"
-      warn "Apt fallback install reported errors; continuing with brew-first flow."
+      warn "Optional apt package installation reported errors; continuing with brew-first flow."
     fi
   else
     PHASE_APT_FALLBACK="skipped"
   fi
 else
   PHASE_APT_FALLBACK="skipped"
-fi
-
-# Inference tools are explicitly opt-in.
-if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-  inference_failed=0
-  run_inference=1
-  skipped_requires_yes=0
-  PHASE_INFERENCE="in_progress"
-  info "🤖 Installing optional inference tools..."
-  warn "Inference installers are remote scripts from third-party domains."
-  warn "Only run these tools when you explicitly trust upstream sources."
-
-  # Require explicit acknowledgement in interactive shells unless --yes is used.
-  if [[ "$ASSUME_YES" -eq 0 ]]; then
-    if [[ ! -t 0 ]]; then
-      warn "Non-interactive shell detected; skipping inference installers unless -y/--yes is provided."
-      run_inference=0
-      skipped_requires_yes=1
-    else
-      confirm_or_die "Proceed with optional remote inference installers (ollama, llmfit)?"
-    fi
-  fi
-
-  # User-approved policy exception: inference installers are intentionally unpinned
-  # because upstream scripts evolve frequently in these projects.
-  if [[ "$run_inference" -eq 1 ]]; then
-    if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
-      inference_failed=1
-    fi
-    if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
-      inference_failed=1
-    fi
-  else
-    inference_failed=0
-  fi
-
-  if [[ "$skipped_requires_yes" -eq 1 ]]; then
-    PHASE_INFERENCE="skipped"
-  elif [[ "$inference_failed" -eq 0 ]]; then
-    PHASE_INFERENCE="ok"
-  else
-    PHASE_INFERENCE="warn"
-    warn "One or more optional inference tool installs failed."
-  fi
-else
-  PHASE_INFERENCE="skipped"
 fi
 
 # We intentionally do not install/compile pyenv Python versions here.

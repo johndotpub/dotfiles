@@ -15,7 +15,7 @@ Clean, straightforward dotfiles setup for Linux, macOS, and WSL:
 - 🌃 Starship Tokyo Night preset by default
 - 📝 Nano syntax highlighting via nanorc
 - 🧱 tmux via Homebrew + oh-my-tmux base config
-- 🤖 Optional inference tools (`--install-inference`: ollama + llmfit)
+- 🤖 Inference tools available through the Homebrew package inventory
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (backup-and-replace by default; use `--preserve` to keep existing files)
@@ -43,7 +43,7 @@ Use `--preserve` to keep existing files unchanged without any backups.
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash
 
 # Pinned to a specific release (recommended for reproducible installs):
-curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.6
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.7
 
 # Branch (unverified):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
@@ -62,7 +62,8 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 ├── inventory/
 │   └── default.yaml
 ├── packages/
-│   └── packages.yaml
+│   ├── apt.yaml
+│   └── brew.yaml
 ├── scripts/
 │   ├── lib/brew-env.sh
 │   ├── lib/install-flags.sh
@@ -81,7 +82,7 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 │   ├── report-json.sh
 │   ├── skel-merge.sh
 │   ├── ssh-config-migration.sh
-│   ├── inference-opt-in.sh
+│   ├── package-sections.sh
 │   ├── nanorc-optional-failure.sh
 │   ├── release-reproducible.sh
 │   └── suite.bats
@@ -110,7 +111,6 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 - `--host <host>` (advanced optional profile name; most users can ignore this)
 - `--pyver <ver>`
 - `--create-home-pyver`
-- `--install-inference` (use with `-y` for non-interactive runs)
 - `--dry-run`
 - `--preserve` (keep existing files untouched; opt out of backup-and-replace)
 - `--brew-only`
@@ -146,9 +146,15 @@ Verify deterministic archive output:
 
 ## 🧰 Package inventory workflow
 
-`packages/packages.yaml` is the single source of truth for package lists
-(`brew` and `apt_minimal` sections).
-The default brew set includes core tools like `tmux`, `ripgrep`, `fzf`, and `fd`.
+`packages/brew.yaml` and `packages/apt.yaml` are the package inventory sources.
+
+- Brew installs every top-level section by default.
+- Apt installs no optional sections by default.
+- Inventory files can opt into specific sections with top-level `brew_sections`
+  and `apt_sections` lists.
+
+The default brew set includes core tools like `tmux`, `ripgrep`, `fzf`, `fd`,
+plus the inference section packages (`ollama`, `llmfit`, and `llama.cpp`).
 
 ## 🤖 Agentic standards
 
@@ -185,7 +191,7 @@ GitHub Actions runs a CI workflow that checks:
 - oh-my-tmux bootstrap/preserve/override behavior (`test/tmux-oh-my.sh`)
 - installer lock contention behavior (`test/installer-lock.sh`)
 - report JSON validity/escaping checks (`test/report-json.sh`)
-- inference installer opt-in behavior (`test/inference-opt-in.sh`)
+- split package section behavior (`test/package-sections.sh`)
 - optional nanorc clone failure handling (`test/nanorc-optional-failure.sh`)
 - brew environment resolution scenarios (`test/brew-env.sh`)
 - bootstrap end-to-end README curl flow (`test/bootstrap-e2e.sh`)

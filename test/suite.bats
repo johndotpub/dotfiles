@@ -62,8 +62,8 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "inference: opt-in behavior" {
-  run bash "${REPO_DIR}/test/inference-opt-in.sh"
+@test "packages: section selection" {
+  run bash "${REPO_DIR}/test/package-sections.sh"
   [ "$status" -eq 0 ]
 }
 
