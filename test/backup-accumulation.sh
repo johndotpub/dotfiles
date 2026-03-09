@@ -10,13 +10,19 @@ set -euo pipefail
 # This test uses distinct frozen timestamps per run so backup filenames are
 # deterministic and non-colliding.  Collision-suffix behaviour (same timestamp,
 # multiple runs) is covered by test/backup-collision.sh.
+#
+# Acceptance guard:
+# - After 3 total installer runs (run, mutate+run, idempotent run), each tracked
+#   file must have exactly 2 backups.
+# - After a 4th total installer run following another user edit, each tracked
+#   file must have exactly 3 backups.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=test/lib/test-shims.sh
 source "${SCRIPT_DIR}/lib/test-shims.sh"
 
-TMP_DIR="$(mktemp -d)"
+TMP_DIR="$(make_tmp_dir)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 
 HOME_DIR="${TMP_DIR}/home"
@@ -25,12 +31,72 @@ mkdir -p "$HOME_DIR" "$FAKE_BIN"
 
 setup_common_fake_bin "$FAKE_BIN"
 
+# Track the files whose backup counts this accumulation test asserts.
+TRACKED_FILES=(
+  ".zshrc"
+  ".gitconfig"
+  ".zshenv"
+)
+
 # Convenience wrapper: run install.sh with a frozen timestamp and common flags.
 run_install() {
   local ts="$1"; shift
   HOME="$HOME_DIR" PATH="${FAKE_BIN}:$PATH" SHELL="/bin/zsh" \
     DOTFILES_TEST_TIMESTAMP="$ts" \
     "${REPO_DIR}/install.sh" --no-apt --brew-only --yes "$@" --ref accum-test >/dev/null
+}
+
+# Count backups for one tracked file without failing when there are no matches.
+count_backups() {
+  local relative_path="$1"
+  local matches=()
+  shopt -s nullglob
+  matches=( "${HOME_DIR}/${relative_path}.bak."* )
+  shopt -u nullglob
+  printf '%s\n' "${#matches[@]}"
+}
+
+# Assert an exact backup count so repeated rerun expectations stay explicit.
+assert_backup_count() {
+  local relative_path="$1"
+  local expected_count="$2"
+  local context="$3"
+  local actual_count
+  actual_count="$(count_backups "$relative_path")"
+  if [[ "$actual_count" -ne "$expected_count" ]]; then
+    echo "FAIL: expected ${expected_count} backups for ${relative_path} ${context}, found ${actual_count}." >&2
+    exit 1
+  fi
+}
+
+# Assert the current backup count for every tracked file.
+assert_all_backup_counts() {
+  local expected_count="$1"
+  local context="$2"
+  local relative_path=""
+  for relative_path in "${TRACKED_FILES[@]}"; do
+    assert_backup_count "$relative_path" "$expected_count" "$context"
+  done
+}
+
+# Verify one timestamped backup still contains the expected preserved content.
+assert_backup_contains() {
+  local relative_path="$1"
+  local timestamp="$2"
+  local needle="$3"
+  if ! grep -q "$needle" "${HOME_DIR}/${relative_path}.bak.${timestamp}"; then
+    echo "FAIL: ${relative_path}.bak.${timestamp} does not contain expected preserved content: ${needle}" >&2
+    exit 1
+  fi
+}
+
+# Simulate user edits between runs so default backup-and-replace runs keep rotating.
+mutate_deployed_files() {
+  local marker="$1"
+  printf '%s\n' "# ${marker}" >> "${HOME_DIR}/.zshrc"
+  printf '%s\n' "[alias]" >> "${HOME_DIR}/.gitconfig"
+  printf '%s\n' "  ${marker// /-} = log --oneline" >> "${HOME_DIR}/.gitconfig"
+  printf '%s\n' "# ${marker}" >> "${HOME_DIR}/.zshenv"
 }
 
 # ── Round 1 ───────────────────────────────────────────────────────────────────
@@ -57,27 +123,19 @@ run_install "20990201000001"
 test -f "${HOME_DIR}/.zshrc.bak.20990201000001"
 test -f "${HOME_DIR}/.gitconfig.bak.20990201000001"
 test -f "${HOME_DIR}/.zshenv.bak.20990201000001"
+assert_all_backup_counts 1 "after round 1"
 
 # Verify original content is preserved in the backups.
-if ! grep -q "ROUND=1" "${HOME_DIR}/.zshrc.bak.20990201000001"; then
-  echo "FAIL: round-1 .zshrc backup does not contain original content." >&2; exit 1
-fi
-if ! grep -q "editor = vim" "${HOME_DIR}/.gitconfig.bak.20990201000001"; then
-  echo "FAIL: round-1 .gitconfig backup does not contain original content." >&2; exit 1
-fi
-if ! grep -q "ZSHENV_ROUND=1" "${HOME_DIR}/.zshenv.bak.20990201000001"; then
-  echo "FAIL: round-1 .zshenv backup does not contain original content." >&2; exit 1
-fi
+assert_backup_contains ".zshrc" "20990201000001" "ROUND=1"
+assert_backup_contains ".gitconfig" "20990201000001" "editor = vim"
+assert_backup_contains ".zshenv" "20990201000001" "ZSHENV_ROUND=1"
 
 # ── Round 2 ───────────────────────────────────────────────────────────────────
 # Simulate user edits to the deployed skel files between runs.
 # A second install with a new timestamp must create fresh backups without
 # touching or overwriting the round-1 backups.
 
-printf '%s\n' '# user edit after round 1' >> "${HOME_DIR}/.zshrc"
-printf '%s\n' '[alias]' >> "${HOME_DIR}/.gitconfig"
-printf '%s\n' '  lg = log --oneline' >> "${HOME_DIR}/.gitconfig"
-printf '%s\n' '# user edit after round 1' >> "${HOME_DIR}/.zshenv"
+mutate_deployed_files "user edit after round 1"
 
 run_install "20990201000002"
 
@@ -88,34 +146,33 @@ test -f "${HOME_DIR}/.gitconfig.bak.20990201000001"
 test -f "${HOME_DIR}/.gitconfig.bak.20990201000002"
 test -f "${HOME_DIR}/.zshenv.bak.20990201000001"
 test -f "${HOME_DIR}/.zshenv.bak.20990201000002"
+assert_all_backup_counts 2 "after round 2"
 
 # Round-1 backups must be intact (not overwritten).
-if ! grep -q "ROUND=1" "${HOME_DIR}/.zshrc.bak.20990201000001"; then
-  echo "FAIL: round-1 .zshrc backup was overwritten by round 2." >&2; exit 1
-fi
+assert_backup_contains ".zshrc" "20990201000001" "ROUND=1"
+assert_backup_contains ".zshrc" "20990201000002" "user edit after round 1"
+assert_backup_contains ".gitconfig" "20990201000002" "user-edit-after-round-1 = log --oneline"
+assert_backup_contains ".zshenv" "20990201000002" "user edit after round 1"
 
 # ── Round 3 — idempotent ──────────────────────────────────────────────────────
 # All deployed files now match skel exactly (round 2 just re-deployed skel copies).
-# A third install must detect the match and create no new backup files.
-
-zshrc_baks_before=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
-gitconfig_baks_before=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
-zshenv_baks_before=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
+# A third install must detect the match and create no new backup files.  This
+# is the explicit "3 total runs -> 2 backups" acceptance case.
 
 run_install "20990201000003"
+assert_all_backup_counts 2 "after round 3"
 
-zshrc_baks_after=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
-gitconfig_baks_after=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
-zshenv_baks_after=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
+# ── Round 4 — another user edit before rerun ──────────────────────────────────
+# A fresh mutation before the fourth total installer run must rotate one more
+# timestamped backup for every tracked file.  This is the explicit
+# "4 total runs -> 3 backups" acceptance case.
 
-if [[ "$zshrc_baks_after" -gt "$zshrc_baks_before" ]]; then
-  echo "FAIL: unexpected new .zshrc backup on idempotent round 3." >&2; exit 1
-fi
-if [[ "$gitconfig_baks_after" -gt "$gitconfig_baks_before" ]]; then
-  echo "FAIL: unexpected new .gitconfig backup on idempotent round 3." >&2; exit 1
-fi
-if [[ "$zshenv_baks_after" -gt "$zshenv_baks_before" ]]; then
-  echo "FAIL: unexpected new .zshenv backup on idempotent round 3." >&2; exit 1
-fi
+mutate_deployed_files "user edit after round 3"
+
+run_install "20990201000004"
+assert_all_backup_counts 3 "after round 4"
+assert_backup_contains ".zshrc" "20990201000004" "user edit after round 3"
+assert_backup_contains ".gitconfig" "20990201000004" "user-edit-after-round-3 = log --oneline"
+assert_backup_contains ".zshenv" "20990201000004" "user edit after round 3"
 
 echo "Backup accumulation checks passed."

@@ -43,7 +43,7 @@ Use `--preserve` to keep existing files unchanged without any backups.
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash
 
 # Pinned to a specific release (recommended for reproducible installs):
-curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.6
+curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref v1.0.7
 
 # Branch (unverified):
 curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
@@ -163,6 +163,9 @@ Repository AI guidance lives in [`AGENTS.md`](AGENTS.md) and includes:
 - Existing files in `$HOME` are backed up to `.bak.<date>` and replaced with fresh skel copies by default.
   If the deployed file already matches skel exactly, the backup and copy are skipped.
   Use `--preserve` to keep existing files unchanged.
+- Repeated non-idempotent reruns keep rotating distinct `.bak.<date>` files; the
+  CI accumulation coverage asserts the exact counts for tracked files (`3` total
+  runs → `2` backups, `4` total runs → `3` backups).
 - `~/.zshenv` is deployed from `skel/default/.zshenv` via the same `deploy_skel_profile` path as
   `.zshrc`; it respects `--preserve` and idempotency in the same way.
 - Existing `~/.ssh/config` is auto-migrated to `~/.ssh/config.local` when local file is absent;
@@ -179,6 +182,7 @@ GitHub Actions runs a CI workflow that checks:
 - no duplicate repo-root shell config files
 - installer/bootstrap help output
 - installer idempotency behavior (backup-and-replace by default; no new backups when file matches skel)
+- multi-rerun backup accumulation counts for tracked rotated files (`3` total runs → `2` backups; `4` total runs → `3` backups)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
 - skel directory merge behavior (preserve existing files, copy missing files)
 - SSH config include migration behavior (`test/ssh-config-migration.sh`)

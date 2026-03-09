@@ -2,6 +2,20 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.7] 🔁
+
+### Changed 🔄
+- 📚 **README rerun guidance refreshed** — bootstrap example now points at `v1.0.7`, and
+  the migration/CI notes now spell out the expected multi-rerun backup counts
+  for tracked rotated files (`3` total runs → `2` backups; `4` total runs → `3` backups).
+
+### Tests ✅
+- 🧪 **`backup-accumulation.sh` now asserts exact rerun counts** — after the 1st,
+  2nd, 3rd, and 4th total installer runs, `.zshrc`, `.gitconfig`, and
+  `.zshenv` must show `1`, `2`, `2`, and `3` backups respectively.
+- 🧪 **Accumulation assertions are DRY and content-aware** — shared helpers now
+  verify both exact `.bak.*` counts and preserved user edits for each tracked file.
+
 ## [v1.0.6] 🔀
 
 ### Changed 🔄
