@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Brew-first, idempotent installer for dotfiles.
-# Usage: ./install.sh [--ref REF] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--install-inference] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
+# Usage: ./install.sh [--ref REF] [--host HOST] [--pyver 3.12.12] [--create-home-pyver] [--dry-run] [--preserve] [--brew-only] [--no-apt] [--verbose] [-y]
 #
 # High-level flow:
 #   1) Parse CLI flags and resolve effective config (CLI + inventory)
@@ -15,7 +15,6 @@ set -euo pipefail
 # fresh copies from skel.  Pass --preserve to keep existing files untouched.
 PRESERVE=0
 CREATE_HOME_PYVER=0
-INSTALL_INFERENCE=0
 PYVER="3.12.12"
 NO_APT=0
 BREW_ONLY=0
@@ -37,14 +36,12 @@ PHASE_APT_BASELINE="pending"
 PHASE_BREW_BOOTSTRAP="pending"
 PHASE_BREW_PACKAGES="pending"
 PHASE_APT_FALLBACK="pending"
-PHASE_INFERENCE="pending"
 PHASE_CONFIG="pending"
 PHASE_CHECKS="pending"
 
 # Track whether the user explicitly set values so inventory can provide defaults.
 CLI_SET_PYVER=0
 CLI_SET_CREATE_HOME_PYVER=0
-CLI_SET_INSTALL_INFERENCE=0
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SKEL_DIR="${REPO_DIR}/skel"
@@ -53,62 +50,8 @@ INVENTORY_DIR="${REPO_DIR}/inventory"
 SKEL_PROFILE="default"
 # shellcheck source=scripts/lib/brew-env.sh
 source "${REPO_DIR}/scripts/lib/brew-env.sh"
-
-timestamp() {
-  if [[ -n "${DOTFILES_TEST_TIMESTAMP:-}" ]]; then
-    printf '%s\n' "$DOTFILES_TEST_TIMESTAMP"
-  else
-    date +%Y%m%d%H%M%S
-  fi
-}
-
-# Build a unique backup target path using timestamp + numeric suffix.
-next_backup_path() {
-  local base="$1"
-  local ts candidate i
-  ts="$(timestamp)"
-  candidate="${base}.bak.${ts}"
-  i=0
-  while [[ -e "$candidate" || -L "$candidate" ]]; do
-    i=$((i + 1))
-    candidate="${base}.bak.${ts}.${i}"
-  done
-  printf '%s\n' "$candidate"
-}
-
-# ------------------------------------------------------------------------------
-# Logging and command execution helpers
-# ------------------------------------------------------------------------------
-# - info/ok/warn/err: user-facing status messages
-# - debug: verbose-only internals
-# - run/run_pipe: DRY-RUN-aware command execution wrappers
-info() { printf 'ℹ️  %s\n' "$*"; }
-ok() { printf '✅ %s\n' "$*"; }
-warn() { printf '⚠️  %s\n' "$*"; }
-err() { printf '❌ %s\n' "$*" >&2; }
-debug() {
-  if [[ "$VERBOSE" -eq 1 ]]; then
-    printf '🔎 %s\n' "$*"
-  fi
-}
-
-format_cmd() {
-  local out="" arg=""
-  for arg in "$@"; do
-    out+=" $(printf '%q' "$arg")"
-  done
-  printf '%s' "${out# }"
-}
-
-# Execute a command (or print it in dry-run mode).
-run() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    printf '🧪 DRY: %s\n' "$(format_cmd "$@")"
-    return 0
-  fi
-  [[ "$VERBOSE" -eq 1 ]] && printf '🔎 RUN: %s\n' "$(format_cmd "$@")"
-  "$@"
-}
+# shellcheck source=scripts/lib/helpers.sh
+source "${REPO_DIR}/scripts/lib/helpers.sh"
 
 # Execute a pipeline string (kept for legacy install snippets).
 run_pipe() {
@@ -130,7 +73,6 @@ Options:
       --preserve             Keep existing files untouched (opt out of backup-and-replace)
       --create-home-pyver    Create ~/.python-version with --pyver value
       --pyver <ver>          Python version for ~/.python-version (default: ${PYVER})
-      --install-inference    Install optional inference tools (ollama, llmfit)
       --no-apt               Skip apt installs
       --brew-only            Prefer brew only; skip apt fallback
       --dry-run              Print actions without executing
@@ -175,8 +117,8 @@ while [[ $# -gt 0 ]]; do
       shift 2
       ;;
     --install-inference)
-      INSTALL_INFERENCE=1
-      CLI_SET_INSTALL_INFERENCE=1
+      # Deprecated: inference tools are now plain brew packages.
+      warn "--install-inference is no longer needed; inference tools install via brew.yaml."
       shift
       ;;
     --no-apt)
@@ -271,35 +213,8 @@ run_root() {
 }
 
 # Escape string data for JSON output fields.
-json_escape() {
-  local s="$1"
-  local out="" code hex char
-  while IFS= read -r code; do
-    [[ -n "$code" ]] || continue
-    if (( code == 34 )); then
-      out+="\\\""
-    elif (( code == 92 )); then
-      out+="\\\\"
-    elif (( code == 8 )); then
-      out+="\\b"
-    elif (( code == 9 )); then
-      out+="\\t"
-    elif (( code == 10 )); then
-      out+="\\n"
-    elif (( code == 12 )); then
-      out+="\\f"
-    elif (( code == 13 )); then
-      out+="\\r"
-    elif (( code >= 0 && code <= 31 )); then
-      printf -v hex '%04x' "$code"
-      out+="\\u${hex}"
-    else
-      printf -v char '%b' "\\$(printf '%03o' "$code")"
-      out+="$char"
-    fi
-  done < <(printf '%s' "$s" | od -An -t u1 -v | tr -s '[:space:]' '\n')
-  printf '%s' "$out"
-}
+# Handles the two characters that appear in practice: backslash and double-quote.
+json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
 
 # Emit end-of-run phase summary and optional JSON report.
 write_install_report() {
@@ -309,7 +224,7 @@ write_install_report() {
     final_status="success"
   fi
 
-  info "📋 Install phase summary: lock=${PHASE_LOCK}, preflight=${PHASE_PREFLIGHT}, apt_baseline=${PHASE_APT_BASELINE}, brew_bootstrap=${PHASE_BREW_BOOTSTRAP}, brew_packages=${PHASE_BREW_PACKAGES}, apt_fallback=${PHASE_APT_FALLBACK}, inference=${PHASE_INFERENCE}, config=${PHASE_CONFIG}, checks=${PHASE_CHECKS}"
+  info "📋 Install phase summary: lock=${PHASE_LOCK}, preflight=${PHASE_PREFLIGHT}, apt_baseline=${PHASE_APT_BASELINE}, brew_bootstrap=${PHASE_BREW_BOOTSTRAP}, brew_packages=${PHASE_BREW_PACKAGES}, apt_fallback=${PHASE_APT_FALLBACK}, config=${PHASE_CONFIG}, checks=${PHASE_CHECKS}"
 
   if [[ -z "$REPORT_JSON" ]]; then
     return 0
@@ -337,7 +252,6 @@ write_install_report() {
     "brew_bootstrap": "$(json_escape "$PHASE_BREW_BOOTSTRAP")",
     "brew_packages": "$(json_escape "$PHASE_BREW_PACKAGES")",
     "apt_fallback": "$(json_escape "$PHASE_APT_FALLBACK")",
-    "inference": "$(json_escape "$PHASE_INFERENCE")",
     "config": "$(json_escape "$PHASE_CONFIG")",
     "checks": "$(json_escape "$PHASE_CHECKS")"
   }
@@ -408,7 +322,7 @@ run_preflight_checks() {
   info "🧪 Running preflight checks..."
 
   local missing=0
-  local required_tools=(bash awk cp mv tar)
+  local required_tools=(git curl)
   local tool=""
   for tool in "${required_tools[@]}"; do
     if command -v "$tool" >/dev/null 2>&1; then
@@ -418,12 +332,6 @@ run_preflight_checks() {
       missing=1
     fi
   done
-
-  if command -v curl >/dev/null 2>&1; then
-    debug "preflight: curl=ok"
-  else
-    warn "curl not found yet (installer will attempt apt fallback where allowed)."
-  fi
 
   if command -v brew >/dev/null 2>&1 || [[ -x "/opt/homebrew/bin/brew" || -x "/usr/local/bin/brew" ]]; then
     debug "preflight: brew probe=ok"
@@ -438,58 +346,6 @@ run_preflight_checks() {
   fi
 
   PHASE_PREFLIGHT="ok"
-}
-
-# Download and execute an upstream install script in a controlled way.
-run_remote_install_script() {
-  local name="$1"
-  local url="$2"
-  local tmp_script=""
-  local script_hash=""
-  local dry_tmp="/tmp/dotfiles-${name}-install.sh"
-
-  info "🌐 Installing ${name} via upstream installer script..."
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    # Dry-run output mirrors the real download-to-temp execution flow.
-    printf '🧪 DRY: curl -fsSL --retry 3 --connect-timeout 15 %q -o %q\n' "$url" "$dry_tmp"
-    printf '🧪 DRY: bash %q\n' "$dry_tmp"
-    printf '🧪 DRY: rm -f %q\n' "$dry_tmp"
-    return 0
-  fi
-
-  # Restrict helper usage to approved inference installer endpoints.
-  case "$url" in
-    https://ollama.ai/install.sh|https://llmfit.axjns.dev/install.sh) ;;
-    *)
-      warn "Blocked unapproved remote installer URL for ${name}: ${url}"
-      return 1
-      ;;
-  esac
-
-  tmp_script="$(mktemp)"
-  if ! curl -fsSL --retry 3 --connect-timeout 15 "$url" -o "$tmp_script"; then
-    warn "Failed to download installer script for ${name}: ${url}"
-    rm -f "$tmp_script"
-    return 1
-  fi
-
-  if ! script_hash="$(sha256sum "$tmp_script" 2>/dev/null | awk '{print $1}')"; then
-    if command -v shasum >/dev/null 2>&1; then
-      script_hash="$(shasum -a 256 "$tmp_script" | awk '{print $1}')"
-    else
-      script_hash="unavailable"
-    fi
-  fi
-  warn "${name} installer is unpinned by policy. downloaded_sha256=${script_hash}"
-
-  if ! bash "$tmp_script"; then
-    warn "Installer script failed for ${name}."
-    rm -f "$tmp_script"
-    return 1
-  fi
-
-  rm -f "$tmp_script"
-  ok "Finished ${name} installation script."
 }
 
 # Interactive confirmation helper used for shell switch prompts.
@@ -538,10 +394,6 @@ apply_inventory_file() {
     val="$(yaml_get_scalar "create_home_pyver" "$file" || true)"
     [[ -n "$val" ]] && CREATE_HOME_PYVER="$(bool_to_int "$val" "$CREATE_HOME_PYVER")"
   fi
-  if [[ "$CLI_SET_INSTALL_INFERENCE" -eq 0 ]]; then
-    val="$(yaml_get_scalar "install_inference" "$file" || true)"
-    [[ -n "$val" ]] && INSTALL_INFERENCE="$(bool_to_int "$val" "$INSTALL_INFERENCE")"
-  fi
   val="$(yaml_get_scalar "skel_profile" "$file" || true)"
   [[ -n "$val" ]] && SKEL_PROFILE="$val"
 }
@@ -563,35 +415,6 @@ read_yaml_list() {
       if (line != "") print line
     }
   ' "$file"
-}
-
-# Rename target to a unique backup path (used for override mode).
-backup_path() {
-  local path="$1"
-  if [[ -e "$path" || -L "$path" ]]; then
-    local bak
-    bak="$(next_backup_path "$path")"
-    run mv "$path" "$bak"
-    debug "Backed up ${path} -> ${bak}"
-  fi
-}
-
-# Copy target to a unique backup path while keeping original in place.
-backup_copy() {
-  local path="$1"
-  if [[ -e "$path" || -L "$path" ]]; then
-    local bak
-    bak="$(next_backup_path "$path")"
-    run cp -Rp "$path" "$bak"
-    debug "Backed up copy ${path} -> ${bak}"
-  fi
-}
-
-# Portable recursive copy wrapper used by skel deployment.
-copy_item() {
-  local src="$1"
-  local dest="$2"
-  run cp -Rp "$src" "$dest"
 }
 
 # Merge src directory into dest without overwriting existing files.
@@ -661,47 +484,44 @@ install_apt_baseline() {
   run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "${pkgs[@]}"
 }
 
-# Install apt fallback package list from YAML section.
-install_apt_from_yaml() {
+# List all top-level section names from a YAML file (keys with no leading spaces
+# followed by a colon, ignoring comment-only lines).
+list_yaml_sections() {
   local file="$1"
-  local section="$2"
-  [[ -f "$file" ]] || return 0
-  if ! command -v apt-get >/dev/null 2>&1; then
-    debug "apt-get not found; skipping apt fallback installs"
-    return 0
-  fi
-  local pkgs=()
-  local pkg=""
-  while IFS= read -r pkg; do
-    pkgs+=("$pkg")
-  done < <(read_yaml_list "$file" "$section")
-  if [[ "${#pkgs[@]}" -eq 0 ]]; then
-    return 0
-  fi
-  info "📦 Installing apt fallback packages..."
-  if ! run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"; then
-    warn "apt fallback package installation failed for one or more packages."
-    return 1
-  fi
+  awk '/^[[:space:]]*#/ { next } /^[a-zA-Z0-9_]+:[[:space:]]*$/ { sub(/:.*/, ""); print }' "$file"
 }
 
-# Install brew package list from YAML section.
-install_brew_from_yaml() {
+# Install a package list from a YAML section using the given package manager.
+# Usage: install_pkgs_from_yaml <file> <section> <mgr>
+#   mgr: "brew" — runs: brew install <pkgs>
+#   mgr: "apt"  — runs: apt-get install -y <pkgs> (requires apt-get)
+install_pkgs_from_yaml() {
   local file="$1"
   local section="$2"
+  local mgr="$3"
   [[ -f "$file" ]] || return 0
+  if [[ "$mgr" == "apt" ]] && ! command -v apt-get >/dev/null 2>&1; then
+    debug "apt-get not found; skipping apt installs from ${file}:${section}"
+    return 0
+  fi
   local pkgs=()
   local pkg=""
   while IFS= read -r pkg; do
     pkgs+=("$pkg")
   done < <(read_yaml_list "$file" "$section")
-  if [[ "${#pkgs[@]}" -eq 0 ]]; then
-    return 0
-  fi
-  info "🍺 Installing brew packages..."
-  if ! run brew install "${pkgs[@]}"; then
-    warn "brew install failed for one or more packages listed in ${file}. Review output and retry."
-    return 1
+  [[ "${#pkgs[@]}" -eq 0 ]] && return 0
+  if [[ "$mgr" == "brew" ]]; then
+    info "🍺 Installing brew packages (${section})..."
+    if ! run brew install "${pkgs[@]}"; then
+      warn "brew install failed for one or more packages in ${file} [${section}]. Review output and retry."
+      return 1
+    fi
+  else
+    info "📦 Installing apt packages (${section})..."
+    if ! run_root env DEBIAN_FRONTEND=noninteractive apt-get install -y "${pkgs[@]}"; then
+      warn "apt package installation failed for one or more packages in ${file} [${section}]."
+      return 1
+    fi
   fi
 }
 
@@ -737,12 +557,12 @@ deploy_skel_profile() {
       else
         # Default: backup existing file then deploy fresh skel copy.
         backup_path "$dest"
-        copy_item "$src" "$dest"
+        run cp -Rp "$src" "$dest"
         debug "Processed ${dest}"
       fi
       continue
     fi
-    copy_item "$src" "$dest"
+    run cp -Rp "$src" "$dest"
     debug "Processed ${dest}"
   done
   shopt -u dotglob nullglob
@@ -859,7 +679,7 @@ migrate_ssh_config_include_local() {
   # Seed managed include config so existing user hosts still load via config.local.
   if [[ -f "$skel_cfg" ]]; then
     run mkdir -p "$ssh_dir"
-    copy_item "$skel_cfg" "$ssh_cfg"
+    run cp -Rp "$skel_cfg" "$ssh_cfg"
     ok "Seeded managed ~/.ssh/config include wrapper."
   else
     warn "Missing skel SSH config at ${skel_cfg}; ~/.ssh/config was not re-seeded."
@@ -946,11 +766,11 @@ trap on_exit EXIT
 # Warm up sudo credentials once early so interactive prompts happen up front,
 # and spawn a background keepalive loop to prevent sudo from expiring mid-run.
 # This avoids password piping or storing credentials in variables.
-# Only gate on apt-enabled (non-brew-only) flows to avoid unnecessary prompts
-# in --no-apt or --brew-only runs; warmup is best-effort so auth failure is
+# Warmup runs for all flows since chsh and /etc/shells registration always need
+# sudo regardless of apt mode. Warmup is best-effort so auth failure is
 # non-fatal (the keepalive loop is simply not started).
-if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 && "$NO_APT" -eq 0 ]]; then
-  if "$SUDO_BIN" -v; then
+if [[ -n "$SUDO_BIN" && "$DRY_RUN" -eq 0 ]]; then
+  if "$SUDO_BIN" -v 2>/dev/null; then
     # Refresh sudo timestamp roughly every 50 seconds in the background for script lifetime.
     # Use sleep (not read) so the loop does not spin on closed stdin in curl|bash pipes.
     ( while true; do "$SUDO_BIN" -n true 2>/dev/null; sleep 50; done ) &
@@ -974,7 +794,6 @@ fi
 
 debug "effective_pyver=${PYVER}"
 debug "effective_create_home_pyver=${CREATE_HOME_PYVER}"
-debug "effective_install_inference=${INSTALL_INFERENCE}"
 debug "effective_skel_profile=${SKEL_PROFILE}"
 
 # Optional apt path for Linux hosts. Disabled in brew-only or no-apt modes.
@@ -997,81 +816,32 @@ PHASE_BREW_BOOTSTRAP="in_progress"
 install_brew_if_missing
 PHASE_BREW_BOOTSTRAP="ok"
 
-PKGS_YAML_FILE="${PKG_DIR}/packages.yaml"
-if [[ ! -f "$PKGS_YAML_FILE" ]]; then
-  err "Missing package inventory: ${PKGS_YAML_FILE}"
+BREW_YAML_FILE="${PKG_DIR}/brew.yaml"
+APT_YAML_FILE="${PKG_DIR}/apt.yaml"
+if [[ ! -f "$BREW_YAML_FILE" ]]; then
+  err "Missing brew package inventory: ${BREW_YAML_FILE}"
   exit 1
 fi
 
-# Install package inventory from packages/packages.yaml.
-if [[ -f "$PKGS_YAML_FILE" ]]; then
-  PHASE_BREW_PACKAGES="in_progress"
-  install_brew_from_yaml "$PKGS_YAML_FILE" "brew"
-  PHASE_BREW_PACKAGES="ok"
-else
-  PHASE_BREW_PACKAGES="skipped"
-fi
+# Install all sections from packages/brew.yaml by default.
+PHASE_BREW_PACKAGES="in_progress"
+brew_section=""
+while IFS= read -r brew_section; do
+  install_pkgs_from_yaml "$BREW_YAML_FILE" "$brew_section" "brew"
+done < <(list_yaml_sections "$BREW_YAML_FILE")
+PHASE_BREW_PACKAGES="ok"
 
+# Install apt packages from packages/apt.yaml when not in brew-only mode.
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
-  if [[ -f "$PKGS_YAML_FILE" ]]; then
-    PHASE_APT_FALLBACK="in_progress"
-    if install_apt_from_yaml "$PKGS_YAML_FILE" "apt_minimal"; then
-      PHASE_APT_FALLBACK="ok"
-    else
-      PHASE_APT_FALLBACK="warn"
-      warn "Apt fallback install reported errors; continuing with brew-first flow."
-    fi
+  PHASE_APT_FALLBACK="in_progress"
+  if install_pkgs_from_yaml "$APT_YAML_FILE" "apt_minimal" "apt"; then
+    PHASE_APT_FALLBACK="ok"
   else
-    PHASE_APT_FALLBACK="skipped"
+    PHASE_APT_FALLBACK="warn"
+    warn "Apt fallback install reported errors; continuing with brew-first flow."
   fi
 else
   PHASE_APT_FALLBACK="skipped"
-fi
-
-# Inference tools are explicitly opt-in.
-if [[ "$INSTALL_INFERENCE" -eq 1 ]]; then
-  inference_failed=0
-  run_inference=1
-  skipped_requires_yes=0
-  PHASE_INFERENCE="in_progress"
-  info "🤖 Installing optional inference tools..."
-  warn "Inference installers are remote scripts from third-party domains."
-  warn "Only run these tools when you explicitly trust upstream sources."
-
-  # Require explicit acknowledgement in interactive shells unless --yes is used.
-  if [[ "$ASSUME_YES" -eq 0 ]]; then
-    if [[ ! -t 0 ]]; then
-      warn "Non-interactive shell detected; skipping inference installers unless -y/--yes is provided."
-      run_inference=0
-      skipped_requires_yes=1
-    else
-      confirm_or_die "Proceed with optional remote inference installers (ollama, llmfit)?"
-    fi
-  fi
-
-  # User-approved policy exception: inference installers are intentionally unpinned
-  # because upstream scripts evolve frequently in these projects.
-  if [[ "$run_inference" -eq 1 ]]; then
-    if ! run_remote_install_script "ollama" "https://ollama.ai/install.sh"; then
-      inference_failed=1
-    fi
-    if ! run_remote_install_script "llmfit" "https://llmfit.axjns.dev/install.sh"; then
-      inference_failed=1
-    fi
-  else
-    inference_failed=0
-  fi
-
-  if [[ "$skipped_requires_yes" -eq 1 ]]; then
-    PHASE_INFERENCE="skipped"
-  elif [[ "$inference_failed" -eq 0 ]]; then
-    PHASE_INFERENCE="ok"
-  else
-    PHASE_INFERENCE="warn"
-    warn "One or more optional inference tool installs failed."
-  fi
-else
-  PHASE_INFERENCE="skipped"
 fi
 
 # We intentionally do not install/compile pyenv Python versions here.

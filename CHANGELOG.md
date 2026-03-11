@@ -2,6 +2,47 @@
 
 All notable changes to this project are documented here.
 
+## [v1.0.7] 🔧
+
+### Changed 🔄
+- 📦 **Package management refactored** (closes #13): `packages/packages.yaml` removed. `packages/brew.yaml`
+  (organized sections: `base`, `development`, `navigation`, `networking`, `system`, `media`, `security`,
+  `inference`, `optional`) and `packages/apt.yaml` (`apt_minimal` section) are now the sources of truth.
+  All brew.yaml sections are installed by default; inference tools (ollama, llama.cpp, llmfit) are now
+  plain brew packages — no remote curl installers.
+- 🔐 **sudo warmup fixed** (closes #15): `sudo -v` warmup now runs for all flows (including `--brew-only`
+  and `--no-apt`), since `chsh` and `/etc/shells` registration always require sudo regardless of apt mode.
+  Previously, `--no-apt` skipped the warmup, causing a password prompt late in the run.
+- 🧹 **DRY-1**: Shared helpers (`info`, `ok`, `warn`, `err`, `debug`, `run`, `format_cmd`, `timestamp`,
+  `next_backup_path`, `backup_path`, `backup_copy`) extracted to `scripts/lib/helpers.sh`; sourced by
+  `install.sh` and `scripts/setup-starship.sh` instead of being inlined.
+- 🧹 **DRY-2**: `copy_item()` removed; all call sites replaced with `run cp -Rp` directly.
+- 🧹 **DRY-5**: `json_escape()` simplified from a 29-line od/awk loop to a 1-line sed that handles
+  backslash and double-quote (the only characters that appear in practice).
+- 🧹 **DRY-6**: `run_preflight_checks()` trimmed to check only `git` and `curl`; POSIX baseline tools
+  (`bash`, `awk`, `cp`, `mv`, `tar`) removed as they are always present.
+- 🧹 **DRY-7**: `install_brew_from_yaml()` and `install_apt_from_yaml()` merged into a single
+  `install_pkgs_from_yaml(file, section, mgr)` function. Added `list_yaml_sections()` helper.
+- 🧹 **DRY-3**: Dead `make_tmp_dir()` function removed from `test/lib/test-shims.sh`.
+- 🧹 **DRY-4**: `write_sudo_shim` is now called inside `setup_common_fake_bin()` so all integration
+  tests consistently sandbox sudo without needing individual setup calls.
+- 🗑️ `--install-inference` flag deprecated (accepted but warns); `INSTALL_INFERENCE` variable removed
+  from `install.sh`, `bootstrap.sh`, and `scripts/lib/install-flags.sh`.
+- 🗑️ `run_remote_install_script()` function removed from `install.sh`.
+- 🗑️ `install_inference` key removed from `inventory/default.yaml`.
+
+### Added ✨
+- 📋 **Round 4 backup accumulation test** (closes #14): `test/backup-accumulation.sh` extended to 4
+  rounds, directly validating: 3 runs → 2 `.bak.*` files, 4 runs → 3 `.bak.*` files.
+- 🔐 **`test/sudo-single-prompt.sh`**: new integration test asserting `sudo -v` is invoked exactly once
+  per installer run, regardless of `--brew-only` / `--no-apt` mode.
+- 📦 **`test/brew-package-sections.sh`**: new test asserting all brew.yaml sections are installed on a
+  normal run and that apt_minimal packages are skipped when `--brew-only` is set.
+
+### Removed 🗑️
+- `packages/packages.yaml` deleted (replaced by `packages/brew.yaml` and `packages/apt.yaml`).
+- `test/inference-opt-in.sh` replaced by `test/brew-package-sections.sh`.
+
 ## [v1.0.6] 🔀
 
 ### Changed 🔄

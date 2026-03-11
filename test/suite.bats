@@ -62,8 +62,8 @@ setup() {
   [ "$status" -eq 0 ]
 }
 
-@test "inference: opt-in behavior" {
-  run bash "${REPO_DIR}/test/inference-opt-in.sh"
+@test "brew: package sections" {
+  run bash "${REPO_DIR}/test/brew-package-sections.sh"
   [ "$status" -eq 0 ]
 }
 
@@ -99,5 +99,10 @@ setup() {
 
 @test "installer: preserve flag" {
   run bash "${REPO_DIR}/test/preserve-flag.sh"
+  [ "$status" -eq 0 ]
+}
+
+@test "installer: sudo single prompt" {
+  run bash "${REPO_DIR}/test/sudo-single-prompt.sh"
   [ "$status" -eq 0 ]
 }

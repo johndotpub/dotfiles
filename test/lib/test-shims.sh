@@ -115,6 +115,8 @@ setup_common_fake_bin() {
   write_pyenv_shim "$fake_bin"
   write_git_shim "$fake_bin"
   write_make_shim "$fake_bin"
+  # Sandbox sudo so tests never escalate to real system privileges.
+  write_sudo_shim "$fake_bin"
 }
 
 # Portable mktemp wrapper: works on Linux and macOS.

@@ -6,6 +6,8 @@ set -euo pipefail
 # already match skel) creates no additional backups.
 #
 # Coverage: .zshrc, .gitconfig, .zshenv
+# Rounds: 4 (2 mutations, 1 idempotent, 1 more mutation) → 3 backup files each.
+#   3 runs → 2 .bak files; 4 runs → 3 .bak files.
 #
 # This test uses distinct frozen timestamps per run so backup filenames are
 # deterministic and non-colliding.  Collision-suffix behaviour (same timestamp,
@@ -118,4 +120,42 @@ if [[ "$zshenv_baks_after" -gt "$zshenv_baks_before" ]]; then
   echo "FAIL: unexpected new .zshenv backup on idempotent round 3." >&2; exit 1
 fi
 
-echo "Backup accumulation checks passed."
+# ── Round 4 ───────────────────────────────────────────────────────────────────
+# Mutate the deployed files again; a fourth run must create a third set of
+# backups — confirming: 3 runs → 2 .bak files, 4 runs → 3 .bak files.
+
+printf '%s\n' '# user edit after round 3' >> "${HOME_DIR}/.zshrc"
+printf '%s\n' '# user edit after round 3' >> "${HOME_DIR}/.gitconfig"
+printf '%s\n' '# user edit after round 3' >> "${HOME_DIR}/.zshenv"
+
+run_install "20990201000004"
+
+# Round-4 backups must exist.
+test -f "${HOME_DIR}/.zshrc.bak.20990201000004"
+test -f "${HOME_DIR}/.gitconfig.bak.20990201000004"
+test -f "${HOME_DIR}/.zshenv.bak.20990201000004"
+
+# All earlier backups must still be intact.
+test -f "${HOME_DIR}/.zshrc.bak.20990201000001"
+test -f "${HOME_DIR}/.zshrc.bak.20990201000002"
+test -f "${HOME_DIR}/.gitconfig.bak.20990201000001"
+test -f "${HOME_DIR}/.gitconfig.bak.20990201000002"
+test -f "${HOME_DIR}/.zshenv.bak.20990201000001"
+test -f "${HOME_DIR}/.zshenv.bak.20990201000002"
+
+# Exact backup counts: each file must have exactly 3 .bak.* files.
+zshrc_final=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
+gitconfig_final=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
+zshenv_final=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
+
+if [[ "$zshrc_final" -ne 3 ]]; then
+  echo "FAIL: expected 3 .zshrc backups after round 4, got ${zshrc_final}." >&2; exit 1
+fi
+if [[ "$gitconfig_final" -ne 3 ]]; then
+  echo "FAIL: expected 3 .gitconfig backups after round 4, got ${gitconfig_final}." >&2; exit 1
+fi
+if [[ "$zshenv_final" -ne 3 ]]; then
+  echo "FAIL: expected 3 .zshenv backups after round 4, got ${zshenv_final}." >&2; exit 1
+fi
+
+echo "Backup accumulation checks passed (4-round, 3-backup coverage)."

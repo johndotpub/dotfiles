@@ -16,51 +16,8 @@ VERBOSE="${VERBOSE:-0}"
 SKEL_DIR="${SKEL_DIR:-}"
 SKEL_PROFILE="${SKEL_PROFILE:-default}"
 
-# Inline logging helpers matching install.sh style.
-info()  { printf 'ℹ️  %s\n' "$*"; }
-ok()    { printf '✅ %s\n' "$*"; }
-warn()  { printf '⚠️  %s\n' "$*"; }
-debug() { if [[ "$VERBOSE" -eq 1 ]]; then printf '🔎 %s\n' "$*"; fi; }
-
-# Inline run() wrapper that respects DRY_RUN.
-run() {
-  if [[ "$DRY_RUN" -eq 1 ]]; then
-    local out="" arg=""
-    for arg in "$@"; do
-      out+=" $(printf '%q' "$arg")"
-    done
-    printf '🧪 DRY: %s\n' "${out# }"
-    return 0
-  fi
-  if [[ "$VERBOSE" -eq 1 ]]; then printf '🔎 RUN: %s\n' "$*"; fi
-  "$@"
-}
-
-# Move an existing file to a timestamped backup path.
-backup_path() {
-  local path="$1"
-  local ts candidate i
-  if [[ -n "${DOTFILES_TEST_TIMESTAMP:-}" ]]; then
-    ts="$DOTFILES_TEST_TIMESTAMP"
-  else
-    ts="$(date +%Y%m%d%H%M%S)"
-  fi
-  candidate="${path}.bak.${ts}"
-  i=0
-  while [[ -e "$candidate" || -L "$candidate" ]]; do
-    i=$((i + 1))
-    candidate="${path}.bak.${ts}.${i}"
-  done
-  if [[ -e "$path" || -L "$path" ]]; then
-    run mv "$path" "$candidate"
-    debug "Backed up ${path} -> ${candidate}"
-  fi
-}
-
-# Portable recursive copy (directories or files).
-copy_item() {
-  run cp -Rp "$1" "$2"
-}
+# shellcheck source=scripts/lib/helpers.sh
+source "$(dirname "${BASH_SOURCE[0]}")/lib/helpers.sh"
 
 # Prefer the official preset command when available so users get the
 # canonical upstream style. Fall back to the bundled preset file otherwise.
@@ -90,7 +47,7 @@ if command -v starship >/dev/null 2>&1 && starship preset --help >/dev/null 2>&1
 fi
 
 if [[ -f "$fallback" ]]; then
-  copy_item "$fallback" "$target"
+  run cp -Rp "$fallback" "$target"
   warn "starship preset command unavailable; applied fallback tokyo-night config."
   exit 0
 fi
