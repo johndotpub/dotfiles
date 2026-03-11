@@ -319,6 +319,9 @@ release_install_lock() {
 }
 
 # Validate core runtime tooling before making changes.
+# git and curl are hard requirements only when apt is unavailable to self-bootstrap them.
+# When apt is enabled (NO_APT=0, BREW_ONLY=0), apt baseline will install both tools before
+# any brew workloads run, so missing tools at preflight time are downgraded to warnings.
 run_preflight_checks() {
   PHASE_PREFLIGHT="in_progress"
   info "🧪 Running preflight checks..."
@@ -329,8 +332,12 @@ run_preflight_checks() {
   for tool in "${required_tools[@]}"; do
     if command -v "$tool" >/dev/null 2>&1; then
       debug "preflight: ${tool}=ok"
+    elif [[ "$NO_APT" -eq 0 && "$BREW_ONLY" -eq 0 ]]; then
+      # apt baseline runs before brew workloads and will install git and curl.
+      warn "${tool} not found yet (apt baseline will install it before brew workloads)."
     else
-      err "Missing required tool: ${tool}"
+      # --no-apt/--brew-only blocks auto-install; missing tool is fatal.
+      err "Missing required tool: ${tool} (--no-apt/--brew-only prevents auto-install)"
       missing=1
     fi
   done

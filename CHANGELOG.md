@@ -22,7 +22,8 @@ All notable changes to this project are documented here.
 - 🧹 **DRY-5**: `json_escape()` simplified from a 29-line od/awk loop to a 1-line `sed` + `tr` pipeline
   that escapes backslash and double-quote and strips ASCII control characters (0x00–0x1F).
 - 🧹 **DRY-6**: `run_preflight_checks()` trimmed to check only `git` and `curl`; POSIX baseline tools
-  (`bash`, `awk`, `cp`, `mv`, `tar`) removed as they are always present.
+  (`bash`, `awk`, `cp`, `mv`, `tar`) removed as they are always present. Missing `git`/`curl` are now
+  warnings (not fatal) when apt is available to self-bootstrap them; fatal only under `--no-apt`/`--brew-only`.
 - 🧹 **DRY-7**: `install_brew_from_yaml()` and `install_apt_from_yaml()` merged into a single
   `install_pkgs_from_yaml(file, section, mgr)` function. Added `list_yaml_sections()` helper.
 - 🗑️ `--install-inference` flag deprecated (accepted but warns); `INSTALL_INFERENCE` variable and
