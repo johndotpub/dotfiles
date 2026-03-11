@@ -213,8 +213,10 @@ run_root() {
 }
 
 # Escape string data for JSON output fields.
-# Handles the two characters that appear in practice: backslash and double-quote.
-json_escape() { printf '%s' "$1" | sed 's/\\/\\\\/g; s/"/\\"/g'; }
+# Strip control characters and escape backslash and double-quote for valid JSON.
+json_escape() {
+  printf '%s' "$1" | tr -d '\000-\037' | sed 's/\\/\\\\/g; s/"/\\"/g'
+}
 
 # Emit end-of-run phase summary and optional JSON report.
 write_install_report() {
