@@ -19,8 +19,8 @@ All notable changes to this project are documented here.
 - 🧹 **DRY-2**: `copy_item()` removed; all call sites replaced with `run cp -Rp` directly.
 - 🧹 **DRY-4**: `write_sudo_shim` is now called inside `setup_common_fake_bin()` so all integration
   tests consistently sandbox sudo without needing individual setup calls.
-- 🧹 **DRY-5**: `json_escape()` simplified from a 29-line od/awk loop to a 1-line sed that handles
-  backslash and double-quote (the only characters that appear in practice).
+- 🧹 **DRY-5**: `json_escape()` simplified from a 29-line od/awk loop to a 1-line `sed` + `tr` pipeline
+  that escapes backslash and double-quote and strips ASCII control characters (0x00–0x1F).
 - 🧹 **DRY-6**: `run_preflight_checks()` trimmed to check only `git` and `curl`; POSIX baseline tools
   (`bash`, `awk`, `cp`, `mv`, `tar`) removed as they are always present.
 - 🧹 **DRY-7**: `install_brew_from_yaml()` and `install_apt_from_yaml()` merged into a single
