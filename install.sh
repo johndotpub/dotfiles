@@ -836,7 +836,10 @@ PHASE_BREW_PACKAGES="ok"
 # Install apt packages from packages/apt.yaml when not in brew-only mode.
 if [[ "$BREW_ONLY" -eq 0 && "$NO_APT" -eq 0 ]]; then
   PHASE_APT_FALLBACK="in_progress"
-  if install_pkgs_from_yaml "$APT_YAML_FILE" "apt_minimal" "apt"; then
+  if [[ ! -f "$APT_YAML_FILE" ]]; then
+    PHASE_APT_FALLBACK="warn"
+    warn "Apt fallback inventory missing: ${APT_YAML_FILE}; skipping apt-based installs."
+  elif install_pkgs_from_yaml "$APT_YAML_FILE" "apt_minimal" "apt"; then
     PHASE_APT_FALLBACK="ok"
   else
     PHASE_APT_FALLBACK="warn"
