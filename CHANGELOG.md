@@ -32,8 +32,9 @@ All notable changes to this project are documented here.
 - 🗑️ `install_inference` key removed from `inventory/default.yaml`.
 
 ### Added ✨
-- 📋 **Round 4 backup accumulation test** (closes #14): `test/backup-accumulation.sh` extended to 4
-  rounds, directly validating: 3 runs → 2 `.bak.*` files, 4 runs → 3 `.bak.*` files.
+- 📋 **Backup accumulation test** (closes #14): `test/backup-accumulation.sh` rewritten to use 2
+  installer runs (seeding a pre-existing backup before run #1) rather than 4, verifying: run 1 adds a
+  new backup alongside the pre-seeded one (accumulation), run 2 is idempotent (no new backups).
 - 🔐 **`test/sudo-single-prompt.sh`**: new integration test asserting `sudo -v` is invoked exactly once
   per installer run, regardless of `--brew-only` / `--no-apt` mode.
 - 📦 **`test/brew-package-sections.sh`**: new test asserting all brew.yaml sections are installed on a

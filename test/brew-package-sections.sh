@@ -75,7 +75,10 @@ run_install() {
 # ── Assertion 1: all brew.yaml sections are installed on a normal (--brew-only) run ──
 # Read expected packages from every section in brew.yaml.
 BREW_YAML="${REPO_DIR}/packages/brew.yaml"
-mapfile -t expected_brew < <(
+expected_brew=()
+while IFS= read -r line; do
+  expected_brew+=("$line")
+done < <(
   awk '
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
     /^[a-zA-Z0-9_]+:[[:space:]]*$/ { in_section = 1; next }
@@ -105,7 +108,10 @@ done
 
 # ── Assertion 2: apt_minimal packages are NOT installed when --brew-only is set ──
 APT_YAML="${REPO_DIR}/packages/apt.yaml"
-mapfile -t apt_pkgs < <(
+apt_pkgs=()
+while IFS= read -r line; do
+  apt_pkgs+=("$line")
+done < <(
   awk -v section="apt_minimal" '
     BEGIN { in_section = 0 }
     /^[[:space:]]*#/ || /^[[:space:]]*$/ { next }
