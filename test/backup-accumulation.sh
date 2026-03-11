@@ -6,7 +6,7 @@ set -euo pipefail
 # already match skel) creates no additional backups.
 #
 # Coverage: .zshrc, .gitconfig, .zshenv
-# Rounds: 4 (2 mutations, 1 idempotent, 1 more mutation) → 3 backup files each.
+# Rounds: 4 (initial deploy, mutation, idempotent rerun, second mutation) → 3 backup files each.
 #   3 runs → 2 .bak files; 4 runs → 3 .bak files.
 #
 # This test uses distinct frozen timestamps per run so backup filenames are
