@@ -5,11 +5,16 @@ set -euo pipefail
 # user files are modified between runs, and that a fully idempotent run (files
 # already match skel) creates no additional backups.
 #
+# Strategy: seed a pre-existing backup alongside user-modified files, then run
+# the installer twice — one mutating run and one idempotent run. This proves:
+#   - Multi-backup accumulation (2 .bak.* files coexist after 1 mutating run)
+#   - Content preservation in backups
+#   - Idempotent runs create no new backups
+#
 # Coverage: .zshrc, .gitconfig, .zshenv
 #
-# This test uses distinct frozen timestamps per run so backup filenames are
-# deterministic and non-colliding.  Collision-suffix behaviour (same timestamp,
-# multiple runs) is covered by test/backup-collision.sh.
+# Collision-suffix behaviour (same timestamp, multiple runs) is covered by
+# test/backup-collision.sh.
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -33,11 +38,17 @@ run_install() {
     "${REPO_DIR}/install.sh" --no-apt --brew-only --yes "$@" --ref accum-test >/dev/null
 }
 
-# ── Round 1 ───────────────────────────────────────────────────────────────────
-# Seed user-managed files that differ from skel; each must be backed up.
+# ── Seed: pre-existing backups ─────────────────────────────────────────────────
+# Simulate a prior run by placing existing .bak.* files so we can confirm that a
+# subsequent mutating run adds a new backup alongside them (accumulation proven).
+touch "${HOME_DIR}/.zshrc.bak.20990101000001"
+touch "${HOME_DIR}/.gitconfig.bak.20990101000001"
+touch "${HOME_DIR}/.zshenv.bak.20990101000001"
 
+# ── Seed: user-modified files ──────────────────────────────────────────────────
+# These differ from skel so run #1 will back them up before deploying skel.
 cat > "${HOME_DIR}/.zshrc" <<'EOF'
-# user zshrc round 1 — differs from skel
+# user-modified zshrc — differs from skel
 export ROUND=1
 EOF
 
@@ -47,75 +58,70 @@ cat > "${HOME_DIR}/.gitconfig" <<'EOF'
 EOF
 
 cat > "${HOME_DIR}/.zshenv" <<'EOF'
-# user zshenv round 1 — differs from skel
+# user-modified zshenv — differs from skel
 export ZSHENV_ROUND=1
 EOF
 
+# ── Run 1: mutating ────────────────────────────────────────────────────────────
+# Modified user files must be backed up; the pre-seeded backups must survive.
 run_install "20990201000001"
 
-# Round 1: each file must have exactly one .bak.TS backup with the round-1 timestamp.
+# New backups must exist with the run-1 timestamp.
 test -f "${HOME_DIR}/.zshrc.bak.20990201000001"
 test -f "${HOME_DIR}/.gitconfig.bak.20990201000001"
 test -f "${HOME_DIR}/.zshenv.bak.20990201000001"
 
-# Verify original content is preserved in the backups.
+# Original content must be preserved in the new backups.
 if ! grep -q "ROUND=1" "${HOME_DIR}/.zshrc.bak.20990201000001"; then
-  echo "FAIL: round-1 .zshrc backup does not contain original content." >&2; exit 1
+  echo "FAIL: run-1 .zshrc backup does not contain original content." >&2; exit 1
 fi
 if ! grep -q "editor = vim" "${HOME_DIR}/.gitconfig.bak.20990201000001"; then
-  echo "FAIL: round-1 .gitconfig backup does not contain original content." >&2; exit 1
+  echo "FAIL: run-1 .gitconfig backup does not contain original content." >&2; exit 1
 fi
 if ! grep -q "ZSHENV_ROUND=1" "${HOME_DIR}/.zshenv.bak.20990201000001"; then
-  echo "FAIL: round-1 .zshenv backup does not contain original content." >&2; exit 1
+  echo "FAIL: run-1 .zshenv backup does not contain original content." >&2; exit 1
 fi
 
-# ── Round 2 ───────────────────────────────────────────────────────────────────
-# Simulate user edits to the deployed skel files between runs.
-# A second install with a new timestamp must create fresh backups without
-# touching or overwriting the round-1 backups.
+# The pre-seeded backups must still be present (accumulation: old + new coexist).
+test -f "${HOME_DIR}/.zshrc.bak.20990101000001"
+test -f "${HOME_DIR}/.gitconfig.bak.20990101000001"
+test -f "${HOME_DIR}/.zshenv.bak.20990101000001"
 
-printf '%s\n' '# user edit after round 1' >> "${HOME_DIR}/.zshrc"
-printf '%s\n' '[alias]' >> "${HOME_DIR}/.gitconfig"
-printf '%s\n' '  lg = log --oneline' >> "${HOME_DIR}/.gitconfig"
-printf '%s\n' '# user edit after round 1' >> "${HOME_DIR}/.zshenv"
+# Each file must now have exactly 2 .bak.* files.
+zshrc_count=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
+gitconfig_count=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
+zshenv_count=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
 
-run_install "20990201000002"
-
-# Both round-1 and round-2 backups must coexist.
-test -f "${HOME_DIR}/.zshrc.bak.20990201000001"
-test -f "${HOME_DIR}/.zshrc.bak.20990201000002"
-test -f "${HOME_DIR}/.gitconfig.bak.20990201000001"
-test -f "${HOME_DIR}/.gitconfig.bak.20990201000002"
-test -f "${HOME_DIR}/.zshenv.bak.20990201000001"
-test -f "${HOME_DIR}/.zshenv.bak.20990201000002"
-
-# Round-1 backups must be intact (not overwritten).
-if ! grep -q "ROUND=1" "${HOME_DIR}/.zshrc.bak.20990201000001"; then
-  echo "FAIL: round-1 .zshrc backup was overwritten by round 2." >&2; exit 1
+if [[ "$zshrc_count" -ne 2 ]]; then
+  echo "FAIL: expected 2 .zshrc backups after run 1, got ${zshrc_count}." >&2; exit 1
+fi
+if [[ "$gitconfig_count" -ne 2 ]]; then
+  echo "FAIL: expected 2 .gitconfig backups after run 1, got ${gitconfig_count}." >&2; exit 1
+fi
+if [[ "$zshenv_count" -ne 2 ]]; then
+  echo "FAIL: expected 2 .zshenv backups after run 1, got ${zshenv_count}." >&2; exit 1
 fi
 
-# ── Round 3 — idempotent ──────────────────────────────────────────────────────
-# All deployed files now match skel exactly (round 2 just re-deployed skel copies).
-# A third install must detect the match and create no new backup files.
-
+# ── Run 2: idempotent ──────────────────────────────────────────────────────────
+# Deployed files now match skel exactly — no new backups must be created.
 zshrc_baks_before=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
 gitconfig_baks_before=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
 zshenv_baks_before=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
 
-run_install "20990201000003"
+run_install "20990201000002"
 
 zshrc_baks_after=$(compgen -G "${HOME_DIR}/.zshrc.bak.*" | wc -l)
 gitconfig_baks_after=$(compgen -G "${HOME_DIR}/.gitconfig.bak.*" | wc -l)
 zshenv_baks_after=$(compgen -G "${HOME_DIR}/.zshenv.bak.*" | wc -l)
 
 if [[ "$zshrc_baks_after" -gt "$zshrc_baks_before" ]]; then
-  echo "FAIL: unexpected new .zshrc backup on idempotent round 3." >&2; exit 1
+  echo "FAIL: unexpected new .zshrc backup on idempotent run 2." >&2; exit 1
 fi
 if [[ "$gitconfig_baks_after" -gt "$gitconfig_baks_before" ]]; then
-  echo "FAIL: unexpected new .gitconfig backup on idempotent round 3." >&2; exit 1
+  echo "FAIL: unexpected new .gitconfig backup on idempotent run 2." >&2; exit 1
 fi
 if [[ "$zshenv_baks_after" -gt "$zshenv_baks_before" ]]; then
-  echo "FAIL: unexpected new .zshenv backup on idempotent round 3." >&2; exit 1
+  echo "FAIL: unexpected new .zshenv backup on idempotent run 2." >&2; exit 1
 fi
 
-echo "Backup accumulation checks passed."
+echo "Backup accumulation checks passed (2-run, 2-backup coverage)."

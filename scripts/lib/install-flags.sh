@@ -20,7 +20,6 @@ build_install_args() {
   [[ "${PRESERVE:-0}"         -eq 1 ]] && install_args+=(--preserve)
   [[ "${VERBOSE:-0}"          -eq 1 ]] && install_args+=(--verbose)
   [[ "${CREATE_HOME_PYVER:-0}" -eq 1 ]] && install_args+=(--create-home-pyver)
-  [[ "${INSTALL_INFERENCE:-0}" -eq 1 ]] && install_args+=(--install-inference)
   [[ -n "${REPORT_JSON:-}" ]]       && install_args+=(--report-json "${REPORT_JSON}")
   [[ "${NO_LOCK:-0}"          -eq 1 ]] && install_args+=(--no-lock)
   # Explicit return 0 ensures the function exits cleanly under set -euo pipefail

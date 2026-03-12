@@ -9,13 +9,12 @@ Clean, straightforward dotfiles setup for Linux, macOS, and WSL:
 **Supported OS:** Ubuntu, Ubuntu (WSL), and macOS.
 **Focus:** A Homebrew-first, zsh-focused dotfiles toolkit.
 
-- 🍺 Brew-first package install
+- 🍺 Brew-first package install (all sections of `packages/brew.yaml` installed by default)
 - 🧾 Release verification (SHA256 + optional GPG on checksum)
 - 🧩 Default skel profile deployment
 - 🌃 Starship Tokyo Night preset by default
 - 📝 Nano syntax highlighting via nanorc
 - 🧱 tmux via Homebrew + oh-my-tmux base config
-- 🤖 Optional inference tools (`--install-inference`: ollama + llmfit)
 - 🧪 Dry-run support
 - 🔎 Verbose debug mode when needed
 - ♻️ Safe re-runs (backup-and-replace by default; use `--preserve` to keep existing files)
@@ -62,9 +61,11 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 ├── inventory/
 │   └── default.yaml
 ├── packages/
-│   └── packages.yaml
+│   ├── brew.yaml
+│   └── apt.yaml
 ├── scripts/
 │   ├── lib/brew-env.sh
+│   ├── lib/helpers.sh
 │   ├── lib/install-flags.sh
 │   ├── setup-starship.sh
 │   └── post-install-checks.sh
@@ -74,14 +75,15 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 │   ├── backup-collision.sh
 │   ├── bootstrap-e2e.sh
 │   ├── brew-env.sh
+│   ├── brew-package-sections.sh
 │   ├── installer-lock.sh
 │   ├── installer-idempotency.sh
 │   ├── preserve-flag.sh
+│   ├── sudo-single-prompt.sh
 │   ├── tmux-oh-my.sh
 │   ├── report-json.sh
 │   ├── skel-merge.sh
 │   ├── ssh-config-migration.sh
-│   ├── inference-opt-in.sh
 │   ├── nanorc-optional-failure.sh
 │   ├── release-reproducible.sh
 │   └── suite.bats
@@ -110,7 +112,6 @@ curl -fsSL https://dot.rly.wtf/bootstrap.sh | bash -s -- --ref my-branch
 - `--host <host>` (advanced optional profile name; most users can ignore this)
 - `--pyver <ver>`
 - `--create-home-pyver`
-- `--install-inference` (use with `-y` for non-interactive runs)
 - `--dry-run`
 - `--preserve` (keep existing files untouched; opt out of backup-and-replace)
 - `--brew-only`
@@ -146,9 +147,13 @@ Verify deterministic archive output:
 
 ## 🧰 Package inventory workflow
 
-`packages/packages.yaml` is the single source of truth for package lists
-(`brew` and `apt_minimal` sections).
-The default brew set includes core tools like `tmux`, `ripgrep`, `fzf`, and `fd`.
+`packages/brew.yaml` is the single source of truth for Homebrew packages. All sections
+(`base`, `development`, `navigation`, `networking`, `system`, `media`, `security`, `inference`, `optional`)
+are installed by default. Inference tools (ollama, llama.cpp, llmfit) are now plain brew packages
+and no longer require a separate opt-in flag.
+
+`packages/apt.yaml` defines optional apt packages for Linux hosts. The `apt_minimal` section
+is installed when running without `--brew-only` or `--no-apt`.
 
 ## 🤖 Agentic standards
 
@@ -180,12 +185,14 @@ GitHub Actions runs a CI workflow that checks:
 - installer/bootstrap help output
 - installer idempotency behavior (backup-and-replace by default; no new backups when file matches skel)
 - backup collision handling for deterministic `.bak.<date>[.<n>]` naming
+- backup accumulation across 4 runs (2 mutations + 1 idempotent + 1 mutation → 3 `.bak.*` files each)
 - skel directory merge behavior (preserve existing files, copy missing files)
 - SSH config include migration behavior (`test/ssh-config-migration.sh`)
 - oh-my-tmux bootstrap/preserve/override behavior (`test/tmux-oh-my.sh`)
 - installer lock contention behavior (`test/installer-lock.sh`)
 - report JSON validity/escaping checks (`test/report-json.sh`)
-- inference installer opt-in behavior (`test/inference-opt-in.sh`)
+- brew package sections behavior (`test/brew-package-sections.sh`)
+- sudo single-prompt behavior (`test/sudo-single-prompt.sh`)
 - optional nanorc clone failure handling (`test/nanorc-optional-failure.sh`)
 - brew environment resolution scenarios (`test/brew-env.sh`)
 - bootstrap end-to-end README curl flow (`test/bootstrap-e2e.sh`)

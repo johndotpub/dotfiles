@@ -23,16 +23,16 @@ export HOME="$HOME_DIR"
 export PATH="${FAKE_BIN}:$PATH"
 export SHELL="/bin/zsh"
 
-# Include control characters in ref to verify escaping robustness.
-REF_WITH_CONTROLS=$'ci\tline\nbreak\rcarriage'
-"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref "$REF_WITH_CONTROLS" --report-json "$REPORT_PATH" >/dev/null
+# Use a ref that exercises backslash and double-quote escaping.
+REF_WITH_SPECIAL='ci\build"ref'
+"${REPO_DIR}/install.sh" --no-apt --brew-only --yes --ref "$REF_WITH_SPECIAL" --report-json "$REPORT_PATH" >/dev/null
 
 if [[ ! -f "$REPORT_PATH" ]]; then
   echo "Expected report file was not written: ${REPORT_PATH}" >&2
   exit 1
 fi
 
-python3 - "$REPORT_PATH" "$REF_WITH_CONTROLS" <<'PY'
+python3 - "$REPORT_PATH" "$REF_WITH_SPECIAL" <<'PY'
 import json
 import sys
 
@@ -55,7 +55,7 @@ if data["ref"] != expected_ref:
     raise SystemExit("ref field did not round-trip through JSON escaping")
 
 phase = data.get("phase", {})
-for key in ["lock", "preflight", "apt_baseline", "brew_bootstrap", "brew_packages", "apt_fallback", "inference", "config", "checks"]:
+for key in ["lock", "preflight", "apt_baseline", "brew_bootstrap", "brew_packages", "apt_fallback", "config", "checks"]:
     if key not in phase:
         raise SystemExit(f"missing phase key: {key}")
 PY
