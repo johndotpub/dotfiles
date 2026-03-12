@@ -43,7 +43,6 @@ navigation:
 
 networking:
   - httpie            # human-friendly HTTP client
-  - dog               # modern DNS client (Rust)
   - mtr               # traceroute + ping
   - iperf3            # network throughput testing
   - bandwhich         # live bandwidth usage (Rust)
