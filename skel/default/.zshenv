@@ -12,8 +12,9 @@ export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
 export PATH="$PYENV_ROOT/shims:$PATH"
 
-# npm environment
+# npm and node environment
 export PATH="$HOME/.npm-global/bin:$PATH"
+export NODE_OPTIONS="--dns-result-order=ipv4first"
 
 ### CUDA — generic environment module ###
 # Only run if /usr/local/cuda exists and is a directory or symlink
